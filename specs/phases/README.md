@@ -6,7 +6,7 @@ type: Guide
 
 | Phase | Name | Status | Directory |
 |-------|------|--------|-----------|
-| _(none yet)_ | | | |
+| 0 | Bootstrap | In Progress | [phase-0-bootstrap](file:///Users/sarang/hustle/intent/specs/phases/phase-0-bootstrap/) |
 
 ## Phase Structure
 

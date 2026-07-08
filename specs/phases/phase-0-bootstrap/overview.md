@@ -1,5 +1,7 @@
 ---
-type: Phase Overview
+type: Phase
+status: in-progress
+tags: [prisma, database, nextjs, nextauth, typescript]
 ---
 
 # Phase 0: Bootstrap Overview
