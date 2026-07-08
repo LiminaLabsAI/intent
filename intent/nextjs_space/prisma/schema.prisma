@@ -1,0 +1,197 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "sqlite"
+    url      = "file:./dev.db"
+}
+
+enum UserRole {
+  ADMIN
+  REVIEWER
+  END_USER
+}
+
+enum IntentStatus {
+  DRAFT
+  IN_PROGRESS
+  NEEDS_CLARIFICATION
+  UNDER_REVIEW
+  APPROVED
+  CONDITIONAL_APPROVAL
+  REJECTED
+  ARCHIVED
+}
+
+enum IntentType {
+  CHANGE
+  CREATE
+  ANALYZE
+  REPORT
+  DELETE
+  UPDATE
+  OTHER
+}
+
+enum DecisionOutcome {
+  AUTO_APPROVED
+  NEEDS_CLARIFICATION
+  HUMAN_REVIEW_REQUIRED
+  CONDITIONAL_APPROVAL
+  REJECTED
+}
+
+enum ReviewDecision {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  ESCALATE
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  password       String
+  role           UserRole     @default(END_USER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  intents        Intent[]     @relation("IntentRequester")
+  reviewTasks    ReviewTask[] @relation("ReviewAssignee")
+  comments       Comment[]
+  auditLogs      AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Intent {
+  id                  String          @id @default(cuid())
+  intentId            String?         @unique
+  version             Int             @default(1)
+  rawInput            String
+  status              IntentStatus    @default(DRAFT)
+  
+  // Stage 2: Parsed
+  entities            Json?           
+  actions             Json?           
+  scope               String?         
+  businessDomain      String?         
+  initialContext      String?         
+  
+  // Stage 3: Semantic Understanding
+  businessObjective   String?         
+  intentType          IntentType?     
+  affectedAssets      Json?           
+  confidenceScore     Float?          
+  
+  // Stage 4: Normalization
+  standardizedIntent  String?         
+  ontologyMappings    Json?           
+  domainAlignment     String?         
+  normalizedScope     String?         
+  
+  // Stage 5: Quality Gate
+  completenessScore   Float?          
+  clarityScore        Float?          
+  consistencyScore    Float?          
+  qualityGateResult   String?         
+  qualityGateDetails  Json?           
+  
+  // Stage 6: Approval Decision
+  decisionOutcome     DecisionOutcome?
+  evidenceQuality     Float?          
+  policyCompliance    Boolean?        
+  riskLevel           String?         
+  delegationPolicy    String?         
+  autonomyEligible    Boolean?        
+  decisionDetails     Json?           
+  
+  // Stage 7: Intent ID
+  approvedAt          DateTime?       
+  linkedEvidence      Json?           
+  
+  // Metadata
+  priority            String?         @default("MEDIUM")
+  expectedOutcome     String?         
+  currentStage        Int             @default(1)
+  processingLog       Json?           
+  
+  // Relations
+  requesterId         String
+  requester           User            @relation("IntentRequester", fields: [requesterId], references: [id])
+  versions            IntentVersion[]
+  reviewTasks         ReviewTask[]
+  comments            Comment[]
+  auditLogs           AuditLog[]
+  
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  
+  @@index([status])
+  @@index([requesterId])
+  @@index([createdAt])
+  @@index([intentType])
+}
+
+model IntentVersion {
+  id              String   @id @default(cuid())
+  intentId        String
+  intent          Intent   @relation(fields: [intentId], references: [id])
+  version         Int
+  snapshot        Json
+  changedBy       String
+  changeReason    String?
+  createdAt       DateTime @default(now())
+
+  @@index([intentId])
+}
+
+model ReviewTask {
+  id              String         @id @default(cuid())
+  intentId        String
+  intent          Intent         @relation(fields: [intentId], references: [id])
+  assigneeId      String?
+  assignee        User?          @relation("ReviewAssignee", fields: [assigneeId], references: [id])
+  decision        ReviewDecision?
+  reason          String?
+  conditions      String?
+  slaDeadline     DateTime?
+  completedAt     DateTime?
+  context         Json?
+  evidence        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([intentId])
+  @@index([assigneeId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  intentId    String
+  intent      Intent   @relation(fields: [intentId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  content     String
+  createdAt   DateTime @default(now())
+
+  @@index([intentId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  intentId    String?
+  intent      Intent?  @relation(fields: [intentId], references: [id])
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  details     Json?
+  stage       Int?
+  createdAt   DateTime @default(now())
+
+  @@index([intentId])
+  @@index([createdAt])
+}
