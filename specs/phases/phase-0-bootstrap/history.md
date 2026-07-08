@@ -14,3 +14,12 @@ Detail: Switched DB provider from Postgres to SQLite (`dev.db`) due to remote se
 
 ---
 
+### [NOTE] 2026-07-08 — Verified Routing & NextAuth Configuration
+Topics: auth, nextauth, middleware
+Affects-phases: phase-0-bootstrap
+Affects-specs: intent/nextjs_space/middleware.ts
+Detail: Audited NextAuth configuration (`auth-options.ts`) and route protection middleware (`middleware.ts`). Checked role boundaries for ADMIN, REVIEWER, and END_USER routes.
+
+---
+
+

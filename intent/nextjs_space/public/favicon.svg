@@ -1,0 +1,11 @@
+<svg viewBox="0 0 32 32" xmlns="https://stratam.us/og-image.svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#g)"/>
+  <path d="M6 10C6 10 11 7 16 12C21 17 26 14 26 14" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M6 20C6 20 11 17 16 22C21 27 26 24 26 24" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6"/>
+</svg>

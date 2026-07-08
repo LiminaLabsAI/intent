@@ -1,0 +1,51 @@
+{
+  "version": "0.32.0",
+  "momentumVersion": "0.32.0",
+  "agents": {
+    "antigravity": {
+      "version": "0.32.0",
+      "files": [
+        ".agents/engines/subagent-dispatch.md",
+        ".agents/hooks.json",
+        ".agents/skills/momentum-orient/SKILL.md",
+        ".agents/skills/momentum-reviewer-architecture/SKILL.md",
+        ".agents/skills/momentum-reviewer-qa/SKILL.md",
+        ".agents/skills/momentum-reviewer-security/SKILL.md",
+        ".agents/skills/swarm-supervisor/SKILL.md",
+        ".agents/workflows/brainstorm-idea.md",
+        ".agents/workflows/brainstorm-phase.md",
+        ".agents/workflows/complete-phase.md",
+        ".agents/workflows/continue.md",
+        ".agents/workflows/dispatch.md",
+        ".agents/workflows/ecosystem.md",
+        ".agents/workflows/handoff.md",
+        ".agents/workflows/hotfix.md",
+        ".agents/workflows/initiative.md",
+        ".agents/workflows/lanes.md",
+        ".agents/workflows/log.md",
+        ".agents/workflows/migrate.md",
+        ".agents/workflows/review-code.md",
+        ".agents/workflows/review.md",
+        ".agents/workflows/scout.md",
+        ".agents/workflows/session.md",
+        ".agents/workflows/start-phase.md",
+        ".agents/workflows/start-project.md",
+        ".agents/workflows/swarm.md",
+        ".agents/workflows/sync-docs.md",
+        ".agents/workflows/systematic-debug.md",
+        ".agents/workflows/track.md",
+        ".agents/workflows/validate.md",
+        ".githooks/commit-msg",
+        ".githooks/contract.js",
+        ".githooks/pre-push",
+        ".githooks/run-check.js",
+        "AGENTS.md",
+        "scripts/antigravity-hook-adapter.sh",
+        "scripts/brainstorm-gate.sh",
+        "scripts/check-history-reminder.sh",
+        "scripts/session-append.sh",
+        "scripts/sessionstart-handoff.sh"
+      ]
+    }
+  }
+}

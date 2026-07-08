@@ -1,0 +1,39 @@
+{
+  "momentum-brainstorm-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|run_command|.*write.*|.*edit.*|.*replace.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/antigravity-hook-adapter.sh pre-tool",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  },
+  "momentum-history-reminder": {
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|run_command|.*write.*|.*edit.*|.*replace.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/antigravity-hook-adapter.sh post-tool",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  },
+  "momentum-session-context": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "bash ../scripts/antigravity-hook-adapter.sh pre-invocation",
+        "timeout": 15
+      }
+    ]
+  }
+}
