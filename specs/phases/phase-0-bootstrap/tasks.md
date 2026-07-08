@@ -5,5 +5,5 @@
   - [x] Push schema to DB (dev/sqlite)
 - [x] Group 1: Routing & Authentication Checks
   - [x] Verify middleware authentication boundaries
-- [/] Group 2: Compilation & Bundling
-  - [/] Verify clean build execution
+- [x] Group 2: Compilation & Bundling
+  - [x] Verify clean build execution
