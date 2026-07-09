@@ -47,8 +47,7 @@ export function Sidebar() {
   };
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
-    { icon: MessageSquarePlus, label: 'New Intent', href: '/dashboard?new=true', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
+    { icon: MessageSquarePlus, label: 'New Intent', href: '/dashboard', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
     { icon: Archive, label: 'Intent Registry', href: '/registry', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
     { icon: ClipboardCheck, label: 'Review Queue', href: '/reviews', roles: ['ADMIN', 'REVIEWER'] },
     { icon: Shield, label: 'Admin', href: '/admin', roles: ['ADMIN'] },
