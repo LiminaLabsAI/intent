@@ -284,47 +284,7 @@ export function IntentDetailClient({ intentId }: { intentId: string }) {
             </div>
           )}
 
-          {/* Comments */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <button onClick={() => toggleSection('comments')} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-blue-500" />
-                <span className="text-gray-900 font-medium">Comments ({intent?.comments?.length ?? 0})</span>
-              </div>
-              {expandedSections?.comments ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </button>
-            {expandedSections?.comments && (
-              <div className="px-5 pb-5">
-                <div className="space-y-3 mb-4">
-                  {(intent?.comments ?? []).map((c: any) => (
-                    <div key={c?.id} className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-gray-800">{c?.user?.name ?? 'Unknown'}</span>
-                        <span className="text-xs text-gray-400">{c?.user?.role}</span>
-                        <span className="text-xs text-gray-300">{new Date(c?.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
-                      </div>
-                      <p className="text-sm text-gray-600">{c?.content}</p>
-                    </div>
-                  ))}
-                  {(intent?.comments?.length ?? 0) === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-3">No comments yet</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    value={comment}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComment(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="bg-white border-gray-200 text-gray-800 placeholder:text-gray-400"
-                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') handleAddComment(); }}
-                  />
-                  <Button onClick={handleAddComment} disabled={submittingComment || !comment?.trim()} size="icon" className="bg-blue-600 hover:bg-blue-700 text-white">
-                    {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+
 
           {/* Audit Log */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

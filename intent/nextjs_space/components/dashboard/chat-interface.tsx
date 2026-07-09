@@ -55,7 +55,7 @@ export function ChatInterface() {
   const [processing, setProcessing] = useState(false);
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [showExecutionPayload, setShowExecutionPayload] = useState<Record<string, boolean>>({});
-  const [activeFormat, setActiveFormat] = useState<Record<string, 'json' | 'md' | 'okf'>>({});
+  const [activeFormat, setActiveFormat] = useState<Record<string, 'human' | 'json' | 'md' | 'okf'>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -571,10 +571,10 @@ ${msg.finalIntent.standardizedIntent}
 ApprovedAt:: ${msg.finalIntent.approvedAt || 'N/A'}
 RiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
 
-                      const isLlmView = !!showExecutionPayload[msg.id];
-                      const currentFormat = activeFormat[msg.id] ?? 'json';
+                      const currentFormat = activeFormat[msg.id] ?? 'human';
                       const formattedText = currentFormat === 'json' ? payloadStr :
-                                            currentFormat === 'md' ? payloadMd : payloadOkf;
+                                            currentFormat === 'md' ? payloadMd :
+                                            currentFormat === 'okf' ? payloadOkf : '';
 
                       return (
                         <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-5 mt-4 space-y-4 animate-fadeIn">
@@ -595,40 +595,42 @@ RiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
                               </div>
                             )}
 
-                            {/* Detailed Vision Toggle Container */}
+                            {/* Detailed Vision & Format Tabs */}
                             <div>
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Detailed Vision</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowExecutionPayload(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
-                                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
-                                >
-                                  {isLlmView ? 'Show Human Readable' : 'Show LLM Execution Payload'}
-                                </button>
                               </div>
 
-                              {isLlmView ? (
-                                <div className="space-y-2">
-                                  {/* Format tabs */}
-                                  <div className="flex border-b border-gray-200">
-                                    {(['json', 'md', 'okf'] as const).map((fmt) => (
-                                      <button
-                                        key={fmt}
-                                        type="button"
-                                        onClick={() => setActiveFormat(prev => ({ ...prev, [msg.id]: fmt }))}
-                                        className={cn(
-                                          'px-3 py-1 text-xs font-medium border-b-2 capitalize transition-all -mb-[1px]',
-                                          currentFormat === fmt
-                                            ? 'border-blue-600 text-blue-600'
-                                            : 'border-transparent text-gray-400 hover:text-gray-600'
-                                        )}
-                                      >
-                                        {fmt === 'md' ? '.MD (Markdown)' : fmt.toUpperCase()}
-                                      </button>
-                                    ))}
-                                  </div>
+                              <div className="space-y-2">
+                                {/* Format tabs */}
+                                <div className="flex border-b border-gray-200">
+                                  {([
+                                    { id: 'human', label: 'Human Readable' },
+                                    { id: 'json', label: 'JSON Payload' },
+                                    { id: 'md', label: '.MD (Markdown)' },
+                                    { id: 'okf', label: 'OKF (Ontology)' },
+                                  ] as const).map((tab) => (
+                                    <button
+                                      key={tab.id}
+                                      type="button"
+                                      onClick={() => setActiveFormat(prev => ({ ...prev, [msg.id]: tab.id }))}
+                                      className={cn(
+                                        'px-3 py-1 text-xs font-medium border-b-2 transition-all -mb-[1px]',
+                                        currentFormat === tab.id
+                                          ? 'border-blue-600 text-blue-600'
+                                          : 'border-transparent text-gray-400 hover:text-gray-600'
+                                      )}
+                                    >
+                                      {tab.label}
+                                    </button>
+                                  ))}
+                                </div>
 
+                                {currentFormat === 'human' ? (
+                                  <p className="text-gray-800 text-sm mt-0.5 leading-relaxed bg-white border border-gray-150 rounded-lg p-3 shadow-sm whitespace-pre-wrap">
+                                    {msg.finalIntent.standardizedIntent}
+                                  </p>
+                                ) : (
                                   <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3.5 font-mono text-xs overflow-x-auto shadow-sm">
                                     <button
                                       type="button"
@@ -641,12 +643,8 @@ RiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
                                     </button>
                                     <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap">{formattedText}</pre>
                                   </div>
-                                </div>
-                              ) : (
-                                <p className="text-gray-800 text-sm mt-0.5 leading-relaxed bg-white border border-gray-150 rounded-lg p-3 shadow-sm whitespace-pre-wrap">
-                                  {msg.finalIntent.standardizedIntent}
-                                </p>
-                              )}
+                                )}
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
