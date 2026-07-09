@@ -5,7 +5,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   MessageSquarePlus, LayoutDashboard, FileSearch, ClipboardCheck,
-  Shield, LogOut, ChevronLeft, ChevronRight, Archive, User, Settings
+  Shield, LogOut, ChevronLeft, ChevronRight, Archive, User, Settings,
+  Key, Copy, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,12 +28,34 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [intents, setIntents] = useState<SidebarIntent[]>([]);
+  const [apiKey, setApiKey] = useState('');
+  const [copied, setCopied] = useState(false);
   const user = session?.user as any;
   const role = user?.role ?? 'END_USER';
 
   useEffect(() => {
     fetchIntents();
+    fetchProfile();
   }, [pathname]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        setApiKey(data?.user?.apiKey ?? '');
+      }
+    } catch (e) {
+      console.error('Failed to fetch user profile:', e);
+    }
+  };
+
+  const handleCopyKey = () => {
+    if (!apiKey) return;
+    navigator.clipboard.writeText(apiKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const fetchIntents = async () => {
     try {
@@ -159,6 +182,17 @@ export function Sidebar() {
               <p className="text-sm text-gray-900 truncate">{user?.name ?? 'User'}</p>
               <p className="text-xs text-gray-400">{role === 'END_USER' ? 'End User' : role === 'REVIEWER' ? 'Reviewer' : 'Admin'}</p>
             </div>
+          )}
+          {!collapsed && apiKey && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleCopyKey}
+              title={copied ? "Copied!" : "Copy API Key"}
+              className="text-gray-400 hover:text-blue-500"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Key className="w-4 h-4" />}
+            </Button>
           )}
           {!collapsed && (
             <Button

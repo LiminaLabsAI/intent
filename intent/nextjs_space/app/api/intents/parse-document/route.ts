@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
 import mammoth from 'mammoth';
+import { getSessionOrApiKey } from '@/lib/api-auth';
 
 // Polyfill browser globals required by pdfjs-dist / pdf-parse in Node environments during Next.js build preloading
 if (typeof global.DOMMatrix === 'undefined') {
@@ -19,8 +18,8 @@ const pdf = require('pdf-parse');
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const user = await getSessionOrApiKey(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

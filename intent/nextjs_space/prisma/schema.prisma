@@ -58,6 +58,7 @@ model User {
   role           UserRole     @default(END_USER)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  apiKey         String?      @unique
   intents        Intent[]     @relation("IntentRequester")
   reviewTasks    ReviewTask[] @relation("ReviewAssignee")
   comments       Comment[]
