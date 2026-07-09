@@ -505,48 +505,83 @@ export function ChatInterface() {
 
                     {/* Final result */}
                     {msg.finalIntent && (
-                      <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
-                        <div className="flex items-center gap-2 mb-3">
+                      <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-5 mt-4 space-y-4">
+                        <div className="flex items-center gap-2 pb-3 border-b border-blue-100/50">
                           <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                          <span className="font-semibold text-gray-900">Pipeline Complete</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="text-gray-500">Status</span>
-                            <p className={cn('font-medium', INTENT_STATUS_CONFIG[msg.finalIntent?.status as keyof typeof INTENT_STATUS_CONFIG]?.color ?? 'text-gray-900')}>
-                              {INTENT_STATUS_CONFIG[msg.finalIntent?.status as keyof typeof INTENT_STATUS_CONFIG]?.label ?? msg.finalIntent?.status}
-                            </p>
+                            <span className="font-semibold text-gray-900 text-sm block">Intent Approved & Registered</span>
+                            <span className="text-[10px] text-gray-400">Created: {new Date(msg.finalIntent.createdAt).toLocaleString()}</span>
                           </div>
-                          {msg.finalIntent?.intentId && (
+                        </div>
+
+                        <div className="space-y-3.5 text-sm">
+                          {/* Intent ID */}
+                          {msg.finalIntent.intentId && (
                             <div>
-                              <span className="text-gray-500">Intent ID</span>
-                              <p className="font-mono text-blue-600">{msg.finalIntent.intentId}</p>
+                              <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Intent ID</span>
+                              <p className="font-mono text-blue-600 font-bold text-base mt-0.5">{msg.finalIntent.intentId}</p>
                             </div>
                           )}
-                          {msg.finalIntent?.decisionOutcome && (
+
+                          {/* Detailed Vision */}
+                          {msg.finalIntent.standardizedIntent && (
                             <div>
-                              <span className="text-gray-500">Decision</span>
-                              <p className="text-gray-800">{(msg.finalIntent.decisionOutcome ?? '').replace(/_/g, ' ')}</p>
+                              <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Detailed Vision</span>
+                              <p className="text-gray-800 text-sm mt-0.5 leading-relaxed bg-white border border-gray-150 rounded-lg p-3 shadow-sm">
+                                {msg.finalIntent.standardizedIntent}
+                              </p>
                             </div>
                           )}
-                          {msg.finalIntent?.riskLevel && (
+
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Status & Approver */}
                             <div>
-                              <span className="text-gray-500">Risk Level</span>
-                              <p className={cn(
-                                msg.finalIntent.riskLevel === 'LOW' ? 'text-green-600' :
-                                msg.finalIntent.riskLevel === 'MEDIUM' ? 'text-amber-600' : 'text-red-600'
-                              )}>{msg.finalIntent.riskLevel}</p>
+                              <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Status & Approver</span>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold', INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.bgColor, INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.color)}>
+                                  {INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.label ?? msg.finalIntent.status}
+                                </span>
+                                <span className="text-xs text-gray-600">
+                                  by {msg.finalIntent.decisionOutcome === 'AUTO_APPROVED' ? 'System (Auto-Approved)' : (msg.finalIntent.requester?.name || 'Authorized Reviewer')}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Timestamp */}
+                            <div>
+                              <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Approved At</span>
+                              <span className="text-xs text-gray-700 block mt-1">
+                                {msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Linked Evidences */}
+                          {msg.finalIntent.linkedEvidence && Object.keys(msg.finalIntent.linkedEvidence).length > 0 && (
+                            <div>
+                              <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Linked Evidences</span>
+                              <div className="bg-white border border-gray-150 rounded-lg p-3 space-y-1 text-xs font-mono text-gray-600 shadow-sm max-h-32 overflow-y-auto">
+                                {Object.entries(msg.finalIntent.linkedEvidence).map(([key, value]: [string, any]) => (
+                                  <div key={key} className="flex gap-2">
+                                    <span className="text-gray-400 min-w-[120px]">{key}:</span>
+                                    <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/intent/${msg.finalIntent?.id}`)}
-                          className="mt-3 text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View Full Details <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
+
+                        <div className="pt-2 border-t border-blue-100/50 flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/intent/${msg.finalIntent?.id}`)}
+                            className="text-blue-600 hover:text-blue-700 font-semibold text-xs"
+                          >
+                            View Audit History & Comments <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                          </Button>
+                        </div>
                       </div>
                     )}
 
