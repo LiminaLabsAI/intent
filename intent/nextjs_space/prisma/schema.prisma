@@ -123,6 +123,11 @@ model Intent {
   // Relations
   requesterId         String
   requester           User            @relation("IntentRequester", fields: [requesterId], references: [id])
+  parentIntentId      String?
+  parentIntent        Intent?         @relation("SubIntents", fields: [parentIntentId], references: [id])
+  subIntents          Intent[]        @relation("SubIntents")
+  clarifyingQuestions Json?          
+  clarifyingAnswers   Json?          
   versions            IntentVersion[]
   reviewTasks         ReviewTask[]
   comments            Comment[]

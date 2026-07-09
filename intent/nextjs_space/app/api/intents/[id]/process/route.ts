@@ -61,7 +61,8 @@ Respond in JSON format with this structure:
   "consistencyScore": 0.95,
   "qualityGateResult": "PASS or FAIL",
   "issues": ["list of any issues found"],
-  "suggestions": ["list of improvement suggestions"]
+  "suggestions": ["list of improvement suggestions"],
+  "questions": ["list of 2-3 specific clarifying questions to ask the user if qualityGateResult is FAIL"]
 }`,
       user: `Evaluate quality of this intent:\nRaw: "${rawInput}"\nStandardized: "${previousResults?.stage4?.standardizedIntent ?? ''}"\nBusiness Objective: "${previousResults?.stage3?.businessObjective ?? ''}"\nScope: "${previousResults?.stage4?.normalizedScope ?? ''}"`
     },
@@ -113,12 +114,17 @@ function getMockResultForStage(stage: number, rawInput: string, previousResults:
       normalizedScope: `Bounded scope execution for entities: ${entities.join(', ')}.`
     },
     5: {
-      completenessScore: 0.95,
-      clarityScore: 0.90,
+      completenessScore: rawInput.length < 30 ? 0.65 : 0.95,
+      clarityScore: rawInput.length < 30 ? 0.60 : 0.90,
       consistencyScore: 0.95,
-      qualityGateResult: "PASS",
-      issues: [],
-      suggestions: ["Conduct pre-execution dry runs in a sandbox environment before final deployment."]
+      qualityGateResult: rawInput.length < 30 ? "FAIL" : "PASS",
+      issues: rawInput.length < 30 ? ["Intent description is too brief and lacks specific database, asset or environment context."] : [],
+      suggestions: ["Provide details on target tables, assets, and desired outcomes."],
+      questions: rawInput.length < 30 ? [
+        "What is the target system or environment for this change?",
+        "What specific assets, tables, or access policies are affected?",
+        "Are there any specific constraints or scheduling requirements?"
+      ] : []
     },
     6: {
       decisionOutcome: "AUTO_APPROVED",
@@ -288,6 +294,44 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                 updateData.intentType = ['CHANGE', 'CREATE', 'ANALYZE', 'REPORT', 'DELETE', 'UPDATE', 'OTHER'].includes(result?.intentType) ? result.intentType : 'OTHER';
                 updateData.affectedAssets = result?.affectedAssets ?? [];
                 updateData.confidenceScore = typeof result?.confidenceScore === 'number' ? result.confidenceScore : null;
+
+                // Search similar intents
+                try {
+                  const searchWords = intent.rawInput.split(' ')
+                    .map(w => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())
+                    .filter(w => w.length > 4);
+
+                  const potentialMatches = await prisma.intent.findMany({
+                    where: {
+                      id: { not: params.id },
+                      status: { not: 'ARCHIVED' },
+                    },
+                    select: {
+                      id: true,
+                      intentId: true,
+                      rawInput: true,
+                      status: true,
+                      standardizedIntent: true,
+                    },
+                    take: 10,
+                  });
+
+                  const similarIntents = potentialMatches.map(item => {
+                    const itemWords = item.rawInput.split(' ')
+                      .map(w => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())
+                      .filter(w => w.length > 4);
+                    const overlap = searchWords.filter(w => itemWords.includes(w)).length;
+                    return { ...item, overlap };
+                  })
+                  .filter(item => item.overlap > 0)
+                  .sort((a, b) => b.overlap - a.overlap)
+                  .slice(0, 3)
+                  .map(({ overlap, ...rest }) => rest);
+
+                  result.similarIntents = similarIntents;
+                } catch (e) {
+                  // silent catch
+                }
               } else if (stage === 4) {
                 updateData.standardizedIntent = result?.standardizedIntent ?? null;
                 updateData.ontologyMappings = result?.ontologyMappings ?? {};
@@ -299,6 +343,35 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                 updateData.consistencyScore = typeof result?.consistencyScore === 'number' ? result.consistencyScore : null;
                 updateData.qualityGateResult = result?.qualityGateResult ?? null;
                 updateData.qualityGateDetails = { issues: result?.issues ?? [], suggestions: result?.suggestions ?? [] };
+
+                if (result?.qualityGateResult === 'FAIL' || (updateData.completenessScore !== null && updateData.completenessScore < 0.8) || (updateData.clarityScore !== null && updateData.clarityScore < 0.8)) {
+                  updateData.status = 'NEEDS_CLARIFICATION';
+                  updateData.clarifyingQuestions = result?.questions ?? [
+                    "What target system or environment does this intent apply to?",
+                    "Could you clarify the exact actions or assets required?"
+                  ];
+
+                  await prisma.intent.update({ where: { id: params.id }, data: updateData });
+
+                  await prisma.auditLog.create({
+                    data: {
+                      intentId: params.id,
+                      userId: user.id,
+                      action: 'NEED_CLARIFICATION',
+                      stage: 5,
+                      details: { questions: updateData.clarifyingQuestions },
+                    },
+                  });
+
+                  sendEvent({
+                    type: 'needs_clarification',
+                    stage: 5,
+                    stageName: STAGE_NAMES[5],
+                    questions: updateData.clarifyingQuestions,
+                    similarIntents: previousResults?.stage3?.similarIntents ?? [],
+                  });
+                  break;
+                }
               } else if (stage === 6) {
                 const outcome = result?.decisionOutcome;
                 const validOutcomes = ['AUTO_APPROVED', 'NEEDS_CLARIFICATION', 'HUMAN_REVIEW_REQUIRED', 'CONDITIONAL_APPROVAL', 'REJECTED'];

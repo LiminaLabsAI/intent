@@ -26,10 +26,14 @@ interface ChatMessage {
   type: 'user' | 'system';
   content: string;
   intentId?: string;
+  dbId?: string;
   stages?: StageResult[];
   finalIntent?: any;
   error?: string;
   timestamp: string;
+  needsClarification?: boolean;
+  clarifyingQuestions?: string[];
+  similarIntents?: any[];
 }
 
 const STAGE_ICONS: Record<number, any> = {
@@ -63,45 +67,35 @@ export function ChatInterface() {
 
     setAttachedFile(file);
     setIsParsing(true);
-    setParsedText('');
 
-    const extension = file.name.split('.').pop()?.toLowerCase();
+    const formData = new FormData();
+    formData.append('file', file);
 
     try {
-      if (['txt', 'md', 'json', 'csv'].includes(extension ?? '')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setParsedText(event.target?.result as string);
-          setIsParsing(false);
-        };
-        reader.onerror = () => {
-          alert('Failed to read file');
-          setAttachedFile(null);
-          setIsParsing(false);
-        };
-        reader.readAsText(file);
-      } else {
-        const formData = new FormData();
-        formData.append('file', file);
+      const res = await fetch('/api/intents/parse-document', {
+        method: 'POST',
+        body: formData,
+      });
 
-        const res = await fetch('/api/intents/parse-document', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Failed to parse file');
-        }
-
-        const data = await res.json();
-        setParsedText(data.text);
-        setIsParsing(false);
+      if (!res.ok) {
+        throw new Error('Failed to parse document');
       }
+
+      const data = await res.json();
+      setParsedText(data.content || '');
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Error occurred during file parsing');
-      setAttachedFile(null);
+      setMessages((prev: any) => [
+        ...(prev ?? []),
+        {
+          id: `err-${Date.now()}`,
+          type: 'system',
+          content: `Error reading file "${file.name}": ${err.message || 'Unknown error'}`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      clearAttachment();
+    } finally {
       setIsParsing(false);
     }
   };
@@ -109,75 +103,29 @@ export function ChatInterface() {
   const clearAttachment = () => {
     setAttachedFile(null);
     setParsedText('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-
   useEffect(() => {
-    messagesEndRef?.current?.scrollIntoView?.({ behavior: 'smooth' });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, processing]);
 
-  useEffect(() => {
-    if (searchParams?.get('new') === 'true') {
-      inputRef?.current?.focus?.();
-    }
-  }, [searchParams]);
-
-  const toggleStage = (messageId: string, stage: number) => {
-    const key = `${messageId}-${stage}`;
-    setExpandedStages((prev: any) => ({ ...(prev ?? {}), [key]: !prev?.[key] }));
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSubmit = async () => {
-    const trimmed = input?.trim?.() ?? '';
-    if ((!trimmed && !parsedText) || processing || isParsing) return;
+  const toggleStage = (messageId: string, stageNum: number) => {
+    const key = `${messageId}-${stageNum}`;
+    setExpandedStages((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
 
-    let rawInputText = trimmed;
-    if (attachedFile && parsedText) {
-      if (trimmed) {
-        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---\n\nUser Request: ${trimmed}`;
-      } else {
-        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---`;
-      }
-    }
-
-    const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      type: 'user',
-      content: rawInputText,
-      timestamp: new Date().toISOString(),
-    };
-
-    const systemMsgId = `msg-${Date.now() + 1}`;
-    const systemMsg: ChatMessage = {
-      id: systemMsgId,
-      type: 'system',
-      content: 'Processing intent through the lifecycle pipeline...',
-      stages: [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: rawInputText } }],
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev: any) => [...(prev ?? []), userMsg, systemMsg]);
-    setInput('');
-    clearAttachment();
+  const processIntentStream = async (dbId: string, systemMsgId: string) => {
     setProcessing(true);
-
     try {
-      const createRes = await fetch('/api/intents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawInput: rawInputText }),
-      });
-
-      if (!createRes.ok) {
-        throw new Error('Failed to create intent');
-      }
-
-      const intent = await createRes.json();
-
-      const processRes = await fetch(`/api/intents/${intent?.id}/process`, {
+      const processRes = await fetch(`/api/intents/${dbId}/process`, {
         method: 'POST',
       });
 
@@ -210,10 +158,17 @@ export function ChatInterface() {
                   const msgs = [...(prev ?? [])];
                   const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
                   if (sysMsg) {
-                    sysMsg.stages = [
-                      ...(sysMsg.stages ?? []),
-                      { stage: event.stage, stageName: event.stageName, status: 'processing' as const },
-                    ];
+                    const exists = sysMsg.stages?.some((s: any) => s?.stage === event?.stage);
+                    if (!exists) {
+                      sysMsg.stages = [
+                        ...(sysMsg.stages ?? []),
+                        { stage: event.stage, stageName: event.stageName, status: 'processing' as const },
+                      ];
+                    } else {
+                      sysMsg.stages = sysMsg.stages?.map((s: any) =>
+                        s?.stage === event?.stage ? { ...s, status: 'processing' as const } : s
+                      );
+                    }
                     sysMsg.content = event?.message ?? 'Processing...';
                   }
                   return msgs;
@@ -228,6 +183,22 @@ export function ChatInterface() {
                       sysMsg.stages[stageIdx].status = 'completed';
                       sysMsg.stages[stageIdx].data = event?.data;
                     }
+                  }
+                  return msgs;
+                });
+                setExpandedStages((prev) => ({
+                  ...prev,
+                  [`${systemMsgId}-${event.stage}`]: true,
+                }));
+              } else if (event?.type === 'needs_clarification') {
+                setMessages((prev: any) => {
+                  const msgs = [...(prev ?? [])];
+                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
+                  if (sysMsg) {
+                    sysMsg.needsClarification = true;
+                    sysMsg.clarifyingQuestions = event.questions;
+                    sysMsg.similarIntents = event.similarIntents;
+                    sysMsg.content = 'Ambiguity detected. Clarification is required.';
                   }
                   return msgs;
                 });
@@ -278,6 +249,75 @@ export function ChatInterface() {
     }
   };
 
+  const handleSubmit = async () => {
+    const trimmed = input.trim();
+    if (!trimmed && !parsedText) return;
+
+    let rawInputText = trimmed;
+    if (attachedFile && parsedText) {
+      if (trimmed) {
+        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---\n\nUser Request: ${trimmed}`;
+      } else {
+        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---`;
+      }
+    }
+
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      type: 'user',
+      content: rawInputText,
+      timestamp: new Date().toISOString(),
+    };
+
+    const systemMsgId = `msg-${Date.now() + 1}`;
+    const systemMsg: ChatMessage = {
+      id: systemMsgId,
+      type: 'system',
+      content: 'Processing intent through the lifecycle pipeline...',
+      stages: [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: rawInputText } }],
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev: any) => [...(prev ?? []), userMsg, systemMsg]);
+    setInput('');
+    clearAttachment();
+    setProcessing(true);
+
+    try {
+      const createRes = await fetch('/api/intents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rawInput: rawInputText }),
+      });
+
+      if (!createRes.ok) {
+        throw new Error('Failed to create intent');
+      }
+
+      const intent = await createRes.json();
+      setMessages((prev: any) => {
+        const msgs = [...(prev ?? [])];
+        const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
+        if (sysMsg) {
+          sysMsg.dbId = intent?.id;
+        }
+        return msgs;
+      });
+
+      await processIntentStream(intent?.id, systemMsgId);
+    } catch (error: any) {
+      setMessages((prev: any) => {
+        const msgs = [...(prev ?? [])];
+        const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
+        if (sysMsg) {
+          sysMsg.error = error?.message ?? 'Failed to process intent';
+        }
+        return msgs;
+      });
+      setProcessing(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -289,7 +329,7 @@ export function ChatInterface() {
     if (!data) return null;
     return (
       <div className="space-y-2 text-sm">
-        {Object.entries(data ?? {}).map(([key, value]: [string, any]) => (
+        {Object.entries(data ?? {}).filter(([k]) => k !== 'similarIntents').map(([key, value]: [string, any]) => (
           <div key={key} className="flex gap-2">
             <span className="text-gray-400 min-w-[120px] font-mono text-xs">{key}:</span>
             <span className="text-gray-700">
@@ -311,6 +351,22 @@ export function ChatInterface() {
             </span>
           </div>
         ))}
+        {data.similarIntents && data.similarIntents.length > 0 && (
+          <div className="mt-3 border-t border-gray-100 pt-2">
+            <span className="text-xs font-semibold text-gray-500 block mb-1">Matching Past Intents:</span>
+            <div className="space-y-1.5 animate-fadeIn">
+              {data.similarIntents.map((item: any) => (
+                <div key={item.id} className="text-xs bg-gray-50 border border-gray-150 rounded px-2.5 py-1.5 flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-mono text-blue-600 font-medium mr-1.5">{item.intentId || 'INT-NEW'}</span>
+                    <span className="text-gray-700 truncate block sm:inline">{item.rawInput}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-semibold ml-2 uppercase bg-gray-100 px-1 rounded">{item.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -331,7 +387,7 @@ export function ChatInterface() {
       {/* Messages */}
       <ScrollArea className="flex-1 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          {(messages?.length ?? 0) === 0 && (
+          {(messages ?? []).length === 0 && (
             <div className="text-center py-20">
               <div className="w-20 h-20 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-6">
                 <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10">
@@ -382,7 +438,7 @@ export function ChatInterface() {
                     <div className="space-y-2">
                       {(msg.stages ?? []).map((stage: StageResult) => {
                         const StageIcon = STAGE_ICONS[stage?.stage ?? 1] ?? Target;
-                        const isExpanded = expandedStages?.[`${msg.id}-${stage?.stage}`];
+                        const isExpanded = expandedStages[`${msg.id}-${stage?.stage}`];
                         return (
                           <div key={stage?.stage} className="rounded-xl bg-white border border-gray-100 overflow-hidden">
                             <button
@@ -422,6 +478,30 @@ export function ChatInterface() {
                         );
                       })}
                     </div>
+
+                    {/* Clarification Form */}
+                    {msg.needsClarification && msg.clarifyingQuestions && msg.clarifyingQuestions.length > 0 && (
+                      <ClarificationForm
+                        intentId={msg.dbId ?? ''}
+                        questions={msg.clarifyingQuestions}
+                        similarIntents={msg.similarIntents ?? []}
+                        onClarified={(refinedText) => {
+                          setMessages((prev: any) => {
+                            const msgs = [...(prev ?? [])];
+                            const sysMsg = msgs.find((m: any) => m?.id === msg.id);
+                            if (sysMsg) {
+                              sysMsg.needsClarification = false;
+                              sysMsg.stages = [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: refinedText } }];
+                              sysMsg.finalIntent = null;
+                              sysMsg.error = null;
+                              sysMsg.content = 'Clarifications submitted. Retrying processing...';
+                            }
+                            return msgs;
+                          });
+                          processIntentStream(msg.dbId ?? '', msg.id);
+                        }}
+                      />
+                    )}
 
                     {/* Final result */}
                     {msg.finalIntent && (
@@ -463,7 +543,7 @@ export function ChatInterface() {
                           variant="ghost"
                           size="sm"
                           onClick={() => router.push(`/intent/${msg.finalIntent?.id}`)}
-                          className="mt-3 text-blue-600 hover:text-blue-700"
+                          className="mt-3 text-blue-600 hover:text-blue-700 font-medium"
                         >
                           View Full Details <ArrowRight className="w-3 h-3 ml-1" />
                         </Button>
@@ -560,5 +640,98 @@ export function ChatInterface() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ClarificationForm({
+  intentId,
+  questions,
+  similarIntents,
+  onClarified,
+}: {
+  intentId: string;
+  questions: string[];
+  similarIntents: any[];
+  onClarified: (refinedRawInput: string) => void;
+}) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [selectedParentId, setSelectedParentId] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/intents/${intentId}/clarify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers,
+          parentId: selectedParentId || undefined,
+        }),
+      });
+      if (res.ok) {
+        let addedString = '';
+        for (const [q, a] of Object.entries(answers)) {
+          if (a.trim()) {
+            addedString += `\n- ${q}: ${a}`;
+          }
+        }
+        onClarified(addedString);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 border border-orange-200 bg-orange-50/50 rounded-xl p-4 space-y-4 animate-fadeIn">
+      <div className="flex items-center gap-2 text-orange-700 font-semibold text-sm">
+        <AlertTriangle className="w-4 h-4 text-orange-500" />
+        <span>Clarification Required to Resolve Ambiguity</span>
+      </div>
+
+      <div className="space-y-3">
+        {questions.map((question, i) => (
+          <div key={i} className="space-y-1.5">
+            <label className="text-xs font-medium text-gray-700 block">{question}</label>
+            <input
+              type="text"
+              required
+              placeholder="Your answer..."
+              value={answers[question] ?? ''}
+              onChange={(e) => setAnswers({ ...answers, [question]: e.target.value })}
+              className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-gray-800"
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Similar Intents Linkage */}
+      {similarIntents.length > 0 && (
+        <div className="space-y-1.5 border-t border-gray-150 pt-3">
+          <label className="text-xs font-semibold text-gray-700 block">Link to a matching past intent? (Optional)</label>
+          <select
+            value={selectedParentId}
+            onChange={(e) => setSelectedParentId(e.target.value)}
+            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-gray-700"
+          >
+            <option value="">-- Select intent to link --</option>
+            {similarIntents.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.intentId || 'INT-NEW'} : {item.rawInput.slice(0, 50)}...
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <Button type="submit" disabled={submitting} className="w-full bg-orange-600 hover:bg-orange-700 text-white text-xs py-2 rounded-lg font-medium">
+        {submitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+        Submit Clarifications & Resume Processing
+      </Button>
+    </form>
   );
 }
