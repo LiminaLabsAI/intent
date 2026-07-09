@@ -86,7 +86,7 @@ Respond in JSON format with this structure:
 }
 
 function getMockResultForStage(stage: number, rawInput: string, previousResults: any) {
-  const words = rawInput.split(' ').map(w => w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"")).filter(w => w.length > 3);
+  const words = rawInput.split(' ').map(w => w.replace(/[^a-zA-Z0-9]/g,"")).filter(w => w.length > 3);
   const entities = Array.from(new Set(words.filter(w => w[0] === w[0]?.toUpperCase()))).slice(0, 4);
   if (entities.length === 0) {
     entities.push("System Assets", "Integration Flow");
@@ -143,14 +143,37 @@ async function callLLMForStage(
   try {
     const { system, user } = buildStagePrompt(stage, rawInput, previousResults);
 
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+    // Read active LLM configuration
+    const config = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
+    const provider = config?.provider ?? 'abacusai';
+    const apiKey = config?.apiKey ?? '';
+    const endpointUrl = config?.endpoint ?? '';
+    const modelId = config?.modelId ?? '';
+
+    let url = 'https://apps.abacus.ai/v1/chat/completions';
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    let model = 'gpt-4o-mini';
+
+    if (provider === 'abacusai') {
+      const activeKey = apiKey || process.env.ABACUSAI_API_KEY;
+      headers['Authorization'] = `Bearer ${activeKey}`;
+    } else if (provider === 'huggingface') {
+      const activeModel = modelId || 'meta-llama/Llama-3.1-8B-Instruct';
+      url = endpointUrl || `https://api-inference.huggingface.co/models/${activeModel}/v1/chat/completions`;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      model = activeModel;
+    } else if (provider === 'ollama') {
+      url = endpointUrl || 'http://localhost:11434/v1/chat/completions';
+      model = modelId || 'llama3.1';
+    }
+
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
+      headers,
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
@@ -162,7 +185,7 @@ async function callLLMForStage(
     });
 
     if (!response.ok) {
-      throw new Error(`LLM API error for stage ${stage}: ${response.status}`);
+      throw new Error(`LLM API error for stage ${stage} via ${provider}: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
@@ -194,7 +217,7 @@ async function callLLMForStage(
 
     const parsedData = JSON.parse(buffer);
     if (parsedData.success === false || parsedData.error) {
-      throw new Error(parsedData.error || "AbacusAI API returned error flag");
+      throw new Error(parsedData.error || "LLM API returned error flag");
     }
     return parsedData;
 

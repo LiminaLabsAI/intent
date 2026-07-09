@@ -196,3 +196,12 @@ model AuditLog {
   @@index([intentId])
   @@index([createdAt])
 }
+
+model SystemSetting {
+  id        String   @id @default("default")
+  provider  String   @default("abacusai") // "abacusai" | "huggingface" | "ollama"
+  apiKey    String?  
+  endpoint  String?  
+  modelId   String?  
+  updatedAt DateTime @updatedAt
+}
