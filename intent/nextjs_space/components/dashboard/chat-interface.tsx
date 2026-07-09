@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Send, Loader2, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, Zap, Shield, Target, Layers, FileCheck,
-  Scale, Hash, Clock, ArrowRight
+  Scale, Hash, Clock, ArrowRight, Paperclip, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -52,6 +52,68 @@ export function ChatInterface() {
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [parsedText, setParsedText] = useState<string>('');
+  const [isParsing, setIsParsing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAttachedFile(file);
+    setIsParsing(true);
+    setParsedText('');
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+
+    try {
+      if (['txt', 'md', 'json', 'csv'].includes(extension ?? '')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setParsedText(event.target?.result as string);
+          setIsParsing(false);
+        };
+        reader.onerror = () => {
+          alert('Failed to read file');
+          setAttachedFile(null);
+          setIsParsing(false);
+        };
+        reader.readAsText(file);
+      } else {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/intents/parse-document', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Failed to parse file');
+        }
+
+        const data = await res.json();
+        setParsedText(data.text);
+        setIsParsing(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error occurred during file parsing');
+      setAttachedFile(null);
+      setIsParsing(false);
+    }
+  };
+
+  const clearAttachment = () => {
+    setAttachedFile(null);
+    setParsedText('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
 
   useEffect(() => {
     messagesEndRef?.current?.scrollIntoView?.({ behavior: 'smooth' });
@@ -70,12 +132,21 @@ export function ChatInterface() {
 
   const handleSubmit = async () => {
     const trimmed = input?.trim?.() ?? '';
-    if (!trimmed || processing) return;
+    if ((!trimmed && !parsedText) || processing || isParsing) return;
+
+    let rawInputText = trimmed;
+    if (attachedFile && parsedText) {
+      if (trimmed) {
+        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---\n\nUser Request: ${trimmed}`;
+      } else {
+        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---`;
+      }
+    }
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       type: 'user',
-      content: trimmed,
+      content: rawInputText,
       timestamp: new Date().toISOString(),
     };
 
@@ -84,19 +155,20 @@ export function ChatInterface() {
       id: systemMsgId,
       type: 'system',
       content: 'Processing intent through the lifecycle pipeline...',
-      stages: [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: trimmed } }],
+      stages: [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: rawInputText } }],
       timestamp: new Date().toISOString(),
     };
 
     setMessages((prev: any) => [...(prev ?? []), userMsg, systemMsg]);
     setInput('');
+    clearAttachment();
     setProcessing(true);
 
     try {
       const createRes = await fetch('/api/intents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawInput: trimmed }),
+        body: JSON.stringify({ rawInput: rawInputText }),
       });
 
       if (!createRes.ok) {
@@ -422,19 +494,60 @@ export function ChatInterface() {
       <div className="border-t border-gray-200 p-4">
         <div className="max-w-4xl mx-auto">
           <div className="relative bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
+            {attachedFile && (
+              <div className="flex items-center gap-2 px-5 pt-3 text-xs text-gray-500">
+                <span className="bg-gray-100 rounded-md px-2 py-1 flex items-center gap-1 border border-gray-200">
+                  <Paperclip className="w-3 h-3 text-gray-400" />
+                  <span className="truncate max-w-[200px]">{attachedFile.name}</span>
+                  {isParsing ? (
+                    <span className="text-blue-500 font-medium">(parsing...)</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={clearAttachment}
+                      className="text-gray-400 hover:text-red-500 ml-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </span>
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe your intent in natural language..."
+              placeholder={attachedFile ? "Add details or submit the document intent..." : "Describe your intent in natural language or upload a document..."}
               rows={2}
-              className="w-full bg-transparent text-gray-800 placeholder:text-gray-400 px-5 py-4 pr-14 resize-none focus:outline-none text-sm"
+              className={cn(
+                "w-full bg-transparent text-gray-800 placeholder:text-gray-400 py-4 pr-14 resize-none focus:outline-none text-sm",
+                attachedFile ? "px-5 pb-4 pt-2" : "pl-12 pr-14"
+              )}
               disabled={processing}
             />
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".txt,.md,.json,.csv,.pdf,.docx"
+              className="hidden"
+            />
+            {!attachedFile && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={processing || isParsing}
+                className="absolute left-3 bottom-3 text-gray-400 hover:text-gray-600 rounded-xl"
+              >
+                <Paperclip className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               onClick={handleSubmit}
-              disabled={!(input?.trim?.()) || processing}
+              disabled={(!input?.trim?.() && !parsedText) || processing || isParsing}
               size="icon"
               className="absolute right-3 bottom-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-30"
             >
