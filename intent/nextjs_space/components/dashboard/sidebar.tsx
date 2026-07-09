@@ -30,6 +30,7 @@ export function Sidebar() {
   const [intents, setIntents] = useState<SidebarIntent[]>([]);
   const [apiKey, setApiKey] = useState('');
   const [copied, setCopied] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const user = session?.user as any;
   const role = user?.role ?? 'END_USER';
 
@@ -71,9 +72,6 @@ export function Sidebar() {
 
   const navItems = [
     { icon: MessageSquarePlus, label: 'New Intent', href: '/dashboard', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
-    { icon: Archive, label: 'Intent Registry', href: '/registry', roles: ['ADMIN', 'REVIEWER', 'END_USER'] },
-    { icon: ClipboardCheck, label: 'Review Queue', href: '/reviews', roles: ['ADMIN', 'REVIEWER'] },
-    { icon: Shield, label: 'Admin', href: '/admin', roles: ['ADMIN'] },
   ];
 
   const filteredNav = navItems.filter((item: any) => (item?.roles ?? []).includes(role));
@@ -172,37 +170,111 @@ export function Sidebar() {
       )}
 
       {/* User section */}
-      <div className="p-3 border-t border-gray-200">
-        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+      <div className="p-3 border-t border-gray-200 relative">
+        {/* Profile Menu Popover */}
+        {profileMenuOpen && (
+          <div className="absolute bottom-16 left-3 right-3 bg-white border border-gray-200 rounded-xl shadow-lg p-2 z-50 space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            {/* Header info */}
+            <div className="px-3 py-2 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account</p>
+              <p className="text-sm font-medium text-gray-900 truncate mt-1">{user?.name ?? 'User'}</p>
+              <p className="text-xs text-gray-400">{role === 'END_USER' ? 'End User' : role === 'REVIEWER' ? 'Reviewer' : 'Admin'}</p>
+            </div>
+
+            {/* Registry link */}
+            <button
+              onClick={() => {
+                router.push('/registry');
+                setProfileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            >
+              <Archive className="w-4 h-4 text-gray-400" />
+              <span>Intent Registry</span>
+            </button>
+
+            {/* Review Queue link */}
+            {(role === 'ADMIN' || role === 'REVIEWER') && (
+              <button
+                onClick={() => {
+                  router.push('/reviews');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              >
+                <ClipboardCheck className="w-4 h-4 text-gray-400" />
+                <span>Review Queue</span>
+              </button>
+            )}
+
+            {/* Admin Panel link */}
+            {role === 'ADMIN' && (
+              <button
+                onClick={() => {
+                  router.push('/admin');
+                  setProfileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              >
+                <Shield className="w-4 h-4 text-gray-400" />
+                <span>Admin Panel</span>
+              </button>
+            )}
+
+            {/* API Key Copy */}
+            {apiKey && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopyKey();
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-gray-400" />
+                  <span>Copy API Key</span>
+                </div>
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-green-500" />
+                ) : (
+                  <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">
+                    {apiKey.substring(0, 8)}...
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Separator */}
+            <div className="border-t border-gray-100 my-1" />
+
+            {/* Sign Out */}
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-red-500" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
+
+        {/* Footer click target */}
+        <div
+          onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          className={cn(
+            'flex items-center gap-3 cursor-pointer p-2 rounded-xl hover:bg-gray-200 transition-colors',
+            profileMenuOpen && 'bg-gray-200',
+            collapsed && 'justify-center'
+          )}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {(user?.name ?? 'U').charAt(0).toUpperCase()}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-900 truncate">{user?.name ?? 'User'}</p>
+              <p className="text-sm text-gray-900 font-medium truncate">{user?.name ?? 'User'}</p>
               <p className="text-xs text-gray-400">{role === 'END_USER' ? 'End User' : role === 'REVIEWER' ? 'Reviewer' : 'Admin'}</p>
             </div>
-          )}
-          {!collapsed && apiKey && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleCopyKey}
-              title={copied ? "Copied!" : "Copy API Key"}
-              className="text-gray-400 hover:text-blue-500"
-            >
-              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Key className="w-4 h-4" />}
-            </Button>
-          )}
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              className="text-gray-400 hover:text-red-500"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
           )}
         </div>
       </div>
