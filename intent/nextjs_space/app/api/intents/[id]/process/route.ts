@@ -169,6 +169,8 @@ async function callLLMForStage(
       model = modelId || 'llama3.1';
     }
 
+    console.log(`[Pipeline Stage ${stage}] Dispatching request to ${provider} using model: ${model} (Endpoint: ${url})`);
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
@@ -219,6 +221,7 @@ async function callLLMForStage(
     if (parsedData.success === false || parsedData.error) {
       throw new Error(parsedData.error || "LLM API returned error flag");
     }
+    console.log(`[Pipeline Stage ${stage}] Successful response from ${provider}!`);
     return parsedData;
 
   } catch (error: any) {
