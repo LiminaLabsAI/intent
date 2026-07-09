@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Shield, Users, BarChart3, FileText, Clock, AlertTriangle,
-  CheckCircle2, XCircle, TrendingUp, Loader2, UserCog
+  CheckCircle2, XCircle, TrendingUp, Loader2, UserCog, Code
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -196,6 +196,66 @@ export function AdminClient() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* API Documentation */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Code className="w-4 h-4 text-indigo-500" />
+              <h2 className="text-gray-900 font-medium">API Integration Reference</h2>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
+              <p className="text-sm">
+                Expose REST endpoints to programmatically manage and submit intents from external services or agents.
+              </p>
+              
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <p className="font-semibold text-xs text-gray-700 mb-2">Authentication Headers</p>
+                <code className="block bg-gray-900 text-gray-100 rounded p-2 text-xs font-mono">
+                  Authorization: Bearer key_admin_sarah
+                </code>
+                <span className="text-[10px] text-gray-400 mt-1 block">Or use the <code className="font-mono text-gray-600 bg-gray-150 px-1 rounded">x-api-key</code> header directly.</span>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                <p className="font-semibold text-xs text-gray-700">1. Submit a New Intent</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">POST</span>
+                  <span className="font-mono text-gray-800">/api/intents</span>
+                </div>
+                <pre className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono overflow-x-auto">
+{`curl -X POST http://localhost:3000/api/intents \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: key_admin_sarah" \\
+  -d '{"rawInput": "Provision a new S3 bucket named dev-uploads", "priority": "MEDIUM"}'`}
+                </pre>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                <p className="font-semibold text-xs text-gray-700">2. Trigger Processing Pipeline (Streams SSE)</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">POST</span>
+                  <span className="font-mono text-gray-800">/api/intents/[id]/process</span>
+                </div>
+                <pre className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono overflow-x-auto">
+{`curl -X POST http://localhost:3000/api/intents/[id]/process \\
+  -H "x-api-key: key_admin_sarah"`}
+                </pre>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                <p className="font-semibold text-xs text-gray-700">3. Document Parsing Endpoint</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">POST</span>
+                  <span className="font-mono text-gray-800">/api/intents/parse-document</span>
+                </div>
+                <pre className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono overflow-x-auto">
+{`curl -X POST http://localhost:3000/api/intents/parse-document \\
+  -H "x-api-key: key_admin_sarah" \\
+  -F "file=@requirements.pdf"`}
+                </pre>
+              </div>
             </div>
           </div>
         </div>

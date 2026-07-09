@@ -1,9 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { getSessionOrApiKey } from '@/lib/api-auth';
 
 const STAGE_NAMES: Record<number, string> = {
   2: 'Intent Parsing',
@@ -152,11 +151,10 @@ async function callLLMForStage(
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const user = await getSessionOrApiKey(request);
+    if (!user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
-    const user = session.user as any;
 
     const intent = await prisma.intent.findUnique({ where: { id: params.id } });
     if (!intent) {
