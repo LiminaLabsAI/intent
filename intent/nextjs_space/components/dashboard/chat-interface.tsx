@@ -55,6 +55,7 @@ export function ChatInterface() {
   const [processing, setProcessing] = useState(false);
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [showExecutionPayload, setShowExecutionPayload] = useState<Record<string, boolean>>({});
+  const [activeFormat, setActiveFormat] = useState<Record<string, 'json' | 'md' | 'okf'>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -331,7 +332,7 @@ export function ChatInterface() {
     if (!data) return null;
     return (
       <div className="space-y-2 text-sm">
-        {Object.entries(data ?? {}).filter(([k]) => k !== 'similarIntents').map(([key, value]: [string, any]) => (
+        {Object.entries(data ?? {}).filter(([k]) => k !== 'similarIntents' && k !== 'similaritySummary').map(([key, value]: [string, any]) => (
           <div key={key} className="flex gap-2">
             <span className="text-gray-400 min-w-[120px] font-mono text-xs">{key}:</span>
             <span className="text-gray-700">
@@ -354,8 +355,22 @@ export function ChatInterface() {
           </div>
         ))}
         {data.similarIntents && data.similarIntents.length > 0 && (
-          <div className="mt-3 border-t border-gray-100 pt-2">
-            <span className="text-xs font-semibold text-gray-500 block mb-1">Matching Past Intents:</span>
+          <div className="mt-3 border-t border-gray-100 pt-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500 block">Matching Past Intents:</span>
+              {data.similaritySummary && (
+                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">
+                  Found {data.similaritySummary.totalCount} ({data.similaritySummary.approvedCount} approved)
+                </span>
+              )}
+            </div>
+
+            {data.similaritySummary?.recommendation && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5 leading-relaxed font-sans">
+                💡 <strong>LLM Recommendation:</strong> {data.similaritySummary.recommendation}
+              </p>
+            )}
+
             <div className="space-y-1.5 animate-fadeIn">
               {data.similarIntents.map((item: any) => (
                 <div key={item.id} className="text-xs bg-gray-50 border border-gray-150 rounded px-2.5 py-1.5 flex items-center justify-between">
@@ -363,7 +378,12 @@ export function ChatInterface() {
                     <span className="font-mono text-blue-600 font-medium mr-1.5">{item.intentId || 'INT-NEW'}</span>
                     <span className="text-gray-700 truncate block sm:inline">{item.rawInput}</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 font-semibold ml-2 uppercase bg-gray-100 px-1 rounded">{item.status}</span>
+                  <span className={cn(
+                    'text-[10px] font-semibold ml-2 px-1.5 py-0.5 rounded',
+                    item.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                    item.status === 'NEEDS_CLARIFICATION' ? 'bg-orange-100 text-orange-800' :
+                    'bg-gray-100 text-gray-800'
+                  )}>{item.status.replace(/_/g, ' ')}</span>
                 </div>
               ))}
             </div>
@@ -520,10 +540,44 @@ export function ChatInterface() {
                         detailedVision: msg.finalIntent.standardizedIntent || ''
                       };
                       const payloadStr = JSON.stringify(payload, null, 2);
+
+                      const payloadMd = `# Intent Registration: ${msg.finalIntent.intentId}
+- **Status**: ${msg.finalIntent.status}
+- **Domain**: ${msg.finalIntent.businessDomain || 'N/A'}
+- **Action Type**: ${msg.finalIntent.intentType || 'OTHER'}
+- **Approved At**: ${msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : 'N/A'}
+
+## Detailed Vision
+${msg.finalIntent.standardizedIntent}
+
+## Scope & Context
+- **Scope**: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}
+- **Objective**: ${msg.finalIntent.businessObjective || 'N/A'}
+
+## Entities
+${(msg.finalIntent.entities || []).map((e: any) => `- ${e}`).join('\n')}`;
+
+                      const payloadOkf = `[INTENT: ${msg.finalIntent.intentId}]
+Domain    :: ${msg.finalIntent.businessDomain || 'N/A'}
+Action    :: ${msg.finalIntent.intentType || 'OTHER'}
+Objective :: ${msg.finalIntent.businessObjective || 'N/A'}
+Scope     :: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}
+Entities  :: [${(msg.finalIntent.entities || []).join(', ')}]
+
+[DETAILED VISION]
+${msg.finalIntent.standardizedIntent}
+
+[METADATA]
+ApprovedAt:: ${msg.finalIntent.approvedAt || 'N/A'}
+RiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
+
                       const isLlmView = !!showExecutionPayload[msg.id];
+                      const currentFormat = activeFormat[msg.id] ?? 'json';
+                      const formattedText = currentFormat === 'json' ? payloadStr :
+                                            currentFormat === 'md' ? payloadMd : payloadOkf;
 
                       return (
-                        <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-5 mt-4 space-y-4">
+                        <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-5 mt-4 space-y-4 animate-fadeIn">
                           <div className="flex items-center gap-2 pb-3 border-b border-blue-100/50">
                             <CheckCircle2 className="w-5 h-5 text-blue-600" />
                             <div>
@@ -543,29 +597,50 @@ export function ChatInterface() {
 
                             {/* Detailed Vision Toggle Container */}
                             <div>
-                              <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Detailed Vision</span>
                                 <button
                                   type="button"
                                   onClick={() => setShowExecutionPayload(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
                                   className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
                                 >
-                                  {isLlmView ? 'Show Human Readable' : 'Show LLM Execution JSON'}
+                                  {isLlmView ? 'Show Human Readable' : 'Show LLM Execution Payload'}
                                 </button>
                               </div>
 
                               {isLlmView ? (
-                                <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3.5 font-mono text-xs overflow-x-auto shadow-sm">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(payloadStr);
-                                    }}
-                                    className="absolute right-2.5 top-2.5 text-[10px] bg-gray-800 text-gray-300 hover:text-white px-2 py-1 rounded border border-gray-705 transition-colors"
-                                  >
-                                    Copy JSON
-                                  </button>
-                                  <pre className="max-h-64 overflow-y-auto">{payloadStr}</pre>
+                                <div className="space-y-2">
+                                  {/* Format tabs */}
+                                  <div className="flex border-b border-gray-200">
+                                    {(['json', 'md', 'okf'] as const).map((fmt) => (
+                                      <button
+                                        key={fmt}
+                                        type="button"
+                                        onClick={() => setActiveFormat(prev => ({ ...prev, [msg.id]: fmt }))}
+                                        className={cn(
+                                          'px-3 py-1 text-xs font-medium border-b-2 capitalize transition-all -mb-[1px]',
+                                          currentFormat === fmt
+                                            ? 'border-blue-600 text-blue-600'
+                                            : 'border-transparent text-gray-400 hover:text-gray-600'
+                                        )}
+                                      >
+                                        {fmt === 'md' ? '.MD (Markdown)' : fmt.toUpperCase()}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3.5 font-mono text-xs overflow-x-auto shadow-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(formattedText);
+                                      }}
+                                      className="absolute right-2.5 top-2.5 text-[10px] bg-gray-800 text-gray-300 hover:text-white px-2 py-1 rounded border border-gray-700 transition-colors"
+                                    >
+                                      Copy Payload
+                                    </button>
+                                    <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap">{formattedText}</pre>
+                                  </div>
                                 </div>
                               ) : (
                                 <p className="text-gray-800 text-sm mt-0.5 leading-relaxed bg-white border border-gray-150 rounded-lg p-3 shadow-sm whitespace-pre-wrap">
@@ -588,7 +663,7 @@ export function ChatInterface() {
                                 </div>
                               </div>
 
-                              {/* Timestamp */}
+                              {/* Approved At Timestamp */}
                               <div>
                                 <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Approved At</span>
                                 <span className="text-xs text-gray-700 block mt-1">
@@ -613,7 +688,42 @@ export function ChatInterface() {
                             )}
                           </div>
 
-                          <div className="pt-2 border-t border-blue-100/50 flex justify-end">
+                          {/* Interactive Next Steps and Follow-Up Group */}
+                          <div className="flex flex-wrap gap-2 pt-3.5 border-t border-blue-100/50">
+                            <span className="text-xs font-semibold text-gray-500 w-full block mb-1">🤖 Next Steps & Engagements:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInput(`Explain the approval reasoning and compliance checks for intent ${msg.finalIntent.intentId}.`);
+                                inputRef.current?.focus();
+                              }}
+                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
+                            >
+                              💬 Ask to Explain Decision
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInput(`Generate execution-ready code and deployment scripts for intent ${msg.finalIntent.intentId}.`);
+                                inputRef.current?.focus();
+                              }}
+                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
+                            >
+                              ⚙️ Generate Execution Code
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInput(`Suggest validation test cases and integration check policies for intent ${msg.finalIntent.intentId}.`);
+                                inputRef.current?.focus();
+                              }}
+                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
+                            >
+                              🧪 Suggest Validation Checks
+                            </button>
+                          </div>
+
+                          <div className="pt-2 flex justify-end">
                             <Button
                               variant="ghost"
                               size="sm"

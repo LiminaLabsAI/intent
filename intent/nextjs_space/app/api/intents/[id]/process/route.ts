@@ -324,11 +324,27 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                     return { ...item, overlap };
                   })
                   .filter(item => item.overlap > 0)
-                  .sort((a, b) => b.overlap - a.overlap)
-                  .slice(0, 3)
-                  .map(({ overlap, ...rest }) => rest);
+                  .sort((a, b) => b.overlap - a.overlap);
 
-                  result.similarIntents = similarIntents;
+                  const totalCount = similarIntents.length;
+                  const approvedCount = similarIntents.filter(i => i.status === 'APPROVED').length;
+                  
+                  let recommendation = "Proceed as a standalone intent.";
+                  const topMatch = similarIntents[0];
+                  if (topMatch) {
+                    if (topMatch.status === 'APPROVED') {
+                      recommendation = `The LLM highly recommends linking this intent as a sub-task of approved intent ${topMatch.intentId || 'INT-NEW'} to leverage approved schemas.`;
+                    } else {
+                      recommendation = `A similar intent (${topMatch.intentId || 'INT-NEW'}) is currently ${topMatch.status.replace(/_/g, ' ')}. We suggest coordinating to prevent deployment script conflicts.`;
+                    }
+                  }
+
+                  result.similarIntents = similarIntents.slice(0, 3).map(({ overlap, ...rest }) => rest);
+                  result.similaritySummary = {
+                    totalCount,
+                    approvedCount,
+                    recommendation
+                  };
                 } catch (e) {
                   // silent catch
                 }
