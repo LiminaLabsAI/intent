@@ -16,7 +16,8 @@ export const metadata = {
     shortcut: '/favicon.svg',
   },
   openGraph: {
-    images: ['/og-image.png'],
+    title: 'Flow - Intent Lifecycle Management',
+    description: 'From Natural Language to Approved Intent ID',
   },
 };
 
