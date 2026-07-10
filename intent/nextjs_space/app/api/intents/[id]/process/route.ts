@@ -13,6 +13,8 @@ const STAGE_NAMES: Record<number, string> = {
 };
 
 function buildStagePrompt(stage: number, rawInput: string, previousResults: any): { system: string; user: string } {
+  const contextNote = `[CRITICAL RULE]: The raw input may contain a section labeled '[Clarifications Added]'. Treat any Q&A in that section as the user's latest, authoritative context from our ongoing conversation.`;
+  
   const prompts: Record<number, { system: string; user: string }> = {
     2: {
       system: `You are an intent parsing engine. Extract structured data from natural language intents.
@@ -25,7 +27,7 @@ Respond in JSON format with this structure:
   "businessDomain": "identified business domain",
   "initialContext": "contextual information extracted"
 }`,
-      user: `Parse this intent: "${rawInput}"`
+      user: `${contextNote}\n\nParse this intent: "${rawInput}"`
     },
     3: {
       system: `You are a semantic understanding engine. Analyze business context and intent type.
@@ -37,7 +39,7 @@ Respond in JSON format with this structure:
   "affectedAssets": ["list of systems/assets affected"],
   "confidenceScore": 0.85
 }`,
-      user: `Understand this intent semantically:\nRaw: "${rawInput}"\nParsed data: ${JSON.stringify(previousResults?.stage2 ?? {})}`
+      user: `${contextNote}\n\nUnderstand this intent semantically:\nRaw: "${rawInput}"\nParsed data: ${JSON.stringify(previousResults?.stage2 ?? {})}`
     },
     4: {
       system: `You are an intent normalization engine. Standardize intent format.
@@ -49,7 +51,7 @@ Respond in JSON format with this structure:
   "domainAlignment": "aligned domain category",
   "normalizedScope": "normalized scope description"
 }`,
-      user: `Normalize this intent:\nRaw: "${rawInput}"\nParsed: ${JSON.stringify(previousResults?.stage2 ?? {})}\nSemantic: ${JSON.stringify(previousResults?.stage3 ?? {})}`
+      user: `${contextNote}\n\nNormalize this intent:\nRaw: "${rawInput}"\nParsed: ${JSON.stringify(previousResults?.stage2 ?? {})}\nSemantic: ${JSON.stringify(previousResults?.stage3 ?? {})}`
     },
     5: {
       system: `You are an intent quality gate. Evaluate completeness, clarity, and consistency.
@@ -62,9 +64,10 @@ Respond in JSON format with this structure:
   "qualityGateResult": "PASS or FAIL",
   "issues": ["list of any issues found"],
   "suggestions": ["list of improvement suggestions"],
-  "questions": ["list of 2-3 specific clarifying questions to ask the user if qualityGateResult is FAIL"]
+  "questions": ["list of 2-3 specific clarifying questions to ask the user if qualityGateResult is FAIL"],
+  "conversationalReply": "A detailed, convincing paragraph explaining to the user exactly why their request is ambiguous or incomplete, and asking them the necessary clarifying questions in a natural conversational tone."
 }`,
-      user: `Evaluate quality of this intent:\nRaw: "${rawInput}"\nStandardized: "${previousResults?.stage4?.standardizedIntent ?? ''}"\nBusiness Objective: "${previousResults?.stage3?.businessObjective ?? ''}"\nScope: "${previousResults?.stage4?.normalizedScope ?? ''}"`
+      user: `${contextNote}\n\nEvaluate quality of this intent:\nRaw: "${rawInput}"\nStandardized: "${previousResults?.stage4?.standardizedIntent ?? ''}"\nBusiness Objective: "${previousResults?.stage3?.businessObjective ?? ''}"\nScope: "${previousResults?.stage4?.normalizedScope ?? ''}"`
     },
     6: {
       system: `You are an approval decision engine. Evaluate evidence, governance, and risk to decide the next action.
@@ -80,7 +83,7 @@ Respond in JSON format with this structure:
   "reasoning": "explanation of the decision",
   "conditions": ["any conditions if conditional approval"]
 }`,
-      user: `Make approval decision for this intent:\nRaw: "${rawInput}"\nObjective: "${previousResults?.stage3?.businessObjective ?? ''}"\nType: "${previousResults?.stage3?.intentType ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nCompleteness: ${previousResults?.stage5?.completenessScore ?? 'N/A'}\nClarity: ${previousResults?.stage5?.clarityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}`
+      user: `${contextNote}\n\nMake approval decision for this intent:\nRaw: "${rawInput}"\nObjective: "${previousResults?.stage3?.businessObjective ?? ''}"\nType: "${previousResults?.stage3?.intentType ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nCompleteness: ${previousResults?.stage5?.completenessScore ?? 'N/A'}\nClarity: ${previousResults?.stage5?.clarityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}`
     },
   };
   return prompts[stage] ?? { system: '', user: '' };
@@ -383,6 +386,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                     stage: 5,
                     stageName: STAGE_NAMES[5],
                     questions: updateData.clarifyingQuestions,
+                    conversationalReply: result?.conversationalReply,
                     similarIntents: previousResults?.stage3?.similarIntents ?? [],
                   });
                   break;

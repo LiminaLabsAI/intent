@@ -172,7 +172,7 @@ export function ChatInterface() {
                   const astMsg: ChatMessage = {
                     id: `ast-${Date.now()}`,
                     type: 'assistant',
-                    content: 'I noticed some ambiguity in your request. Please clarify the following so I can proceed:\n\n' + (event.questions || []).map((q: string, i: number) => `${i+1}. ${q}`).join('\n\n'),
+                    content: event.conversationalReply || ('I noticed some ambiguity in your request. Please clarify the following so I can proceed:\n\n' + (event.questions || []).map((q: string, i: number) => `${i+1}. ${q}`).join('\n\n')),
                     needsClarification: true,
                     similarIntents: event.similarIntents,
                     timestamp: new Date().toISOString()
