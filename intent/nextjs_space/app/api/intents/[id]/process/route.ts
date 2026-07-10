@@ -21,69 +21,62 @@ function buildStagePrompt(stage: number, rawInput: string, previousResults: any)
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.
 Respond in JSON format with this structure:
 {
-  "entities": ["list of entities mentioned"],
-  "actions": ["list of actions/goals identified"],
-  "scope": "description of the scope",
-  "businessDomain": "identified business domain",
-  "initialContext": "contextual information extracted"
+  "requestedServices": ["list of specific services or products requested"],
+  "primaryAction": "description of the primary action",
+  "urgency": "LOW, MEDIUM, HIGH, CRITICAL",
+  "userGoal": "the end goal the user wants to achieve"
 }`,
       user: `${contextNote}\n\nParse this intent: "${rawInput}"`
     },
     3: {
-      system: `You are a semantic understanding engine. Analyze business context and intent type.
+      system: `You are a semantic understanding engine. Analyze business context and transaction type.
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.
 Respond in JSON format with this structure:
 {
-  "businessObjective": "the core business objective",
-  "intentType": "one of: CHANGE, CREATE, ANALYZE, REPORT, DELETE, UPDATE, OTHER",
-  "affectedAssets": ["list of systems/assets affected"],
+  "intentCategory": "one of: PURCHASE, SUBSCRIBE, UPGRADE, CONSULTING, SUPPORT, GENERAL",
+  "targetProductsOrFeatures": ["list of products or features"],
+  "monetizationPotential": "HIGH, MEDIUM, LOW",
   "confidenceScore": 0.85
 }`,
       user: `${contextNote}\n\nUnderstand this intent semantically:\nRaw: "${rawInput}"\nParsed data: ${JSON.stringify(previousResults?.stage2 ?? {})}`
     },
     4: {
-      system: `You are an intent normalization engine. Standardize intent format.
+      system: `You are an intent normalization engine. Standardize the intent into a formal service request.
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.
 Respond in JSON format with this structure:
 {
-  "standardizedIntent": "clear, standardized description",
-  "ontologyMappings": {"term": "standardTerm"},
-  "domainAlignment": "aligned domain category",
-  "normalizedScope": "normalized scope description"
+  "formalServiceRequest": "formalized description of the requested transaction/service",
+  "requiredResources": ["list of resources or prerequisites needed"],
+  "estimatedComplexity": "LOW, MEDIUM, HIGH"
 }`,
       user: `${contextNote}\n\nNormalize this intent:\nRaw: "${rawInput}"\nParsed: ${JSON.stringify(previousResults?.stage2 ?? {})}\nSemantic: ${JSON.stringify(previousResults?.stage3 ?? {})}`
     },
     5: {
-      system: `You are an intent quality gate. Evaluate completeness, clarity, and consistency.
+      system: `You are an intent quality gate. Evaluate if the request has enough detail for checkout or execution.
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.
 Respond in JSON format with this structure:
 {
-  "completenessScore": 0.9,
+  "actionabilityScore": 0.9,
   "clarityScore": 0.85,
-  "consistencyScore": 0.95,
   "qualityGateResult": "PASS or FAIL",
-  "issues": ["list of any issues found"],
-  "suggestions": ["list of improvement suggestions"],
+  "missingInformation": ["list of missing details required to proceed"],
   "questions": ["list of 2-3 specific clarifying questions to ask the user if qualityGateResult is FAIL"],
-  "conversationalReply": "A detailed, convincing paragraph explaining to the user exactly why their request is ambiguous or incomplete, and asking them the necessary clarifying questions in a natural conversational tone."
+  "conversationalReply": "A detailed, convincing paragraph explaining to the user exactly what is missing and asking them the necessary clarifying questions to proceed with their request in a natural conversational tone."
 }`,
-      user: `${contextNote}\n\nEvaluate quality of this intent:\nRaw: "${rawInput}"\nStandardized: "${previousResults?.stage4?.standardizedIntent ?? ''}"\nBusiness Objective: "${previousResults?.stage3?.businessObjective ?? ''}"\nScope: "${previousResults?.stage4?.normalizedScope ?? ''}"`
+      user: `${contextNote}\n\nEvaluate quality of this intent:\nRaw: "${rawInput}"\nService Request: "${previousResults?.stage4?.formalServiceRequest ?? ''}"\nCategory: "${previousResults?.stage3?.intentCategory ?? ''}"`
     },
     6: {
-      system: `You are an approval decision engine. Evaluate evidence, governance, and risk to decide the next action.
+      system: `You are a fulfillment decision engine. Evaluate readiness, cost, and risk to decide the next action.
 Respond with raw JSON only. Do not include code blocks, markdown, or any other formatting.
 Respond in JSON format with this structure:
 {
-  "decisionOutcome": "one of: AUTO_APPROVED, NEEDS_CLARIFICATION, HUMAN_REVIEW_REQUIRED, CONDITIONAL_APPROVAL, REJECTED",
-  "evidenceQuality": 0.85,
-  "policyCompliance": true,
+  "decisionOutcome": "one of: READY_FOR_CHECKOUT, NEEDS_CLARIFICATION, MANUAL_QUOTE_REQUIRED, REJECTED",
+  "costCategory": "FREE, TIER_1, TIER_2, CUSTOM_QUOTE",
   "riskLevel": "LOW, MEDIUM, or HIGH",
-  "delegationPolicy": "description of delegation",
-  "autonomyEligible": true,
   "reasoning": "explanation of the decision",
-  "conditions": ["any conditions if conditional approval"]
+  "conditions": ["any conditions or prerequisites"]
 }`,
-      user: `${contextNote}\n\nMake approval decision for this intent:\nRaw: "${rawInput}"\nObjective: "${previousResults?.stage3?.businessObjective ?? ''}"\nType: "${previousResults?.stage3?.intentType ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nCompleteness: ${previousResults?.stage5?.completenessScore ?? 'N/A'}\nClarity: ${previousResults?.stage5?.clarityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}`
+      user: `${contextNote}\n\nMake approval decision for this intent:\nRaw: "${rawInput}"\nGoal: "${previousResults?.stage2?.userGoal ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nActionability: ${previousResults?.stage5?.actionabilityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}`
     },
   };
   return prompts[stage] ?? { system: '', user: '' };
@@ -98,45 +91,38 @@ function getMockResultForStage(stage: number, rawInput: string, previousResults:
 
   const stageMocks: Record<number, any> = {
     2: {
-      entities: entities,
-      actions: ["Process", "Execute", "Verify"],
-      scope: `Analysis and automation pipeline execution for intent request: "${rawInput}"`,
-      businessDomain: "Enterprise Automation",
-      initialContext: `Request captured programmatically on ${new Date().toLocaleDateString()}.`
+      requestedServices: entities.length > 0 ? entities : ["Premium Support"],
+      primaryAction: "Process transaction",
+      urgency: "MEDIUM",
+      userGoal: `Goal identified from request: "${rawInput}".`
     },
     3: {
-      businessObjective: `Enhance operations related to intent objective: "${rawInput}".`,
-      intentType: rawInput.toLowerCase().includes('delete') ? 'DELETE' : rawInput.toLowerCase().includes('report') ? 'REPORT' : rawInput.toLowerCase().includes('update') ? 'UPDATE' : 'CREATE',
-      affectedAssets: [...entities, "Integration Server"],
+      intentCategory: "UPGRADE",
+      targetProductsOrFeatures: entities,
+      monetizationPotential: "HIGH",
       confidenceScore: 0.95
     },
     4: {
-      standardizedIntent: `Standardized operational directive to execute: "${rawInput}".`,
-      ontologyMappings: { "legacy": "source", "automation": "orchestration" },
-      domainAlignment: "Systems Engineering",
-      normalizedScope: `Bounded scope execution for entities: ${entities.join(', ')}.`
+      formalServiceRequest: `Formal service and transaction request for: "${rawInput}".`,
+      requiredResources: ["Billing Authorization", "Account Validation"],
+      estimatedComplexity: "LOW"
     },
     5: {
-      completenessScore: rawInput.length < 30 ? 0.65 : 0.95,
+      actionabilityScore: rawInput.length < 30 ? 0.65 : 0.95,
       clarityScore: rawInput.length < 30 ? 0.60 : 0.90,
-      consistencyScore: 0.95,
       qualityGateResult: rawInput.length < 30 ? "FAIL" : "PASS",
-      issues: rawInput.length < 30 ? ["Intent description is too brief and lacks specific database, asset or environment context."] : [],
-      suggestions: ["Provide details on target tables, assets, and desired outcomes."],
+      missingInformation: rawInput.length < 30 ? ["Specific product details", "Billing tier"] : [],
       questions: rawInput.length < 30 ? [
-        "What is the target system or environment for this change?",
-        "What specific assets, tables, or access policies are affected?",
-        "Are there any specific constraints or scheduling requirements?"
-      ] : []
+        "Which specific tier are you looking to upgrade to?",
+        "Do you need this for a team or an individual account?"
+      ] : [],
+      conversationalReply: rawInput.length < 30 ? "I see you want to proceed with a request, but I need a few more details to set up the checkout properly. Could you specify which tier you are looking for?" : "Looks great!"
     },
     6: {
-      decisionOutcome: "AUTO_APPROVED",
-      evidenceQuality: 0.94,
-      policyCompliance: true,
+      decisionOutcome: rawInput.length < 30 ? "NEEDS_CLARIFICATION" : "READY_FOR_CHECKOUT",
+      costCategory: "TIER_1",
       riskLevel: "LOW",
-      delegationPolicy: "Standard Automated Rule Engine",
-      autonomyEligible: true,
-      reasoning: "Intent matches standard criteria, has a complete structure, passes quality checks, and falls under low risk automation policy.",
+      reasoning: "Intent matches standard transactional criteria and is ready for fulfillment processing.",
       conditions: []
     }
   };
