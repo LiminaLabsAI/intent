@@ -460,7 +460,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
               // otherwise downstream stages will run with missing data and potentially auto-approve.
               await prisma.intent.update({
                 where: { id: params.id },
-                data: { status: 'FAILED' },
+                data: { status: 'REJECTED' },
               });
               
               throw stageError;
