@@ -132,10 +132,15 @@ export function IntentDetailClient({ intentId }: { intentId: string }) {
     { stage: 7, name: 'Intent ID Creation', data: { intentId: intent?.intentId, approvedAt: intent?.approvedAt, linkedEvidence: intent?.linkedEvidence }, completed: (intent?.currentStage ?? 0) >= 7 },
   ];
 
+  const activityFeed = [
+    ...(intent?.comments || []).map((c: any) => ({ ...c, type: 'COMMENT' })),
+    ...(intent?.auditLogs || []).map((a: any) => ({ ...a, type: 'AUDIT' }))
+  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
   return (
     <div className="h-screen bg-white flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon-sm" onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-gray-700">
@@ -145,7 +150,7 @@ export function IntentDetailClient({ intentId }: { intentId: string }) {
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-display font-semibold text-gray-900">
                   {intent?.intentId ? <span className="font-mono text-blue-600 mr-2">{intent.intentId}</span> : null}
-                  Intent Detail
+                  Intent Discussion
                 </h1>
                 <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', statusConfig?.bgColor, statusConfig?.color)}>
                   {statusConfig?.label}
@@ -170,150 +175,191 @@ export function IntentDetailClient({ intentId }: { intentId: string }) {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto p-6 space-y-6">
-          {/* Raw Input */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-            <div className="flex items-start gap-3">
-              <Target className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Original Intent</p>
-                <p className="text-gray-900">{intent?.rawInput}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 mt-4 text-xs text-gray-400">
-              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {intent?.requester?.name}</span>
-              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(intent?.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
-              <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {intent?.priority ?? 'MEDIUM'}</span>
-              {intent?.businessDomain && <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {intent.businessDomain}</span>}
-            </div>
-          </div>
-
-          {/* Stage Progress */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <button onClick={() => toggleSection('stages')} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-500" />
-                <span className="text-gray-900 font-medium">Lifecycle Stages</span>
-              </div>
-              {expandedSections?.stages ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </button>
-            {expandedSections?.stages && (
-              <div className="px-5 pb-5 space-y-3">
-                {/* Progress bar */}
-                <div className="flex items-center gap-1 mb-4">
-                  {[1, 2, 3, 4, 5, 6, 7].map((s: number) => (
-                    <div key={s} className={cn(
-                      'h-1.5 flex-1 rounded-full transition-colors',
-                      s <= (intent?.currentStage ?? 0) ? 'bg-blue-500' : 'bg-gray-100'
-                    )} />
-                  ))}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Column: Activity Feed (Chat) */}
+        <div className="flex-1 flex flex-col border-r border-gray-200 bg-gray-50/50">
+          <ScrollArea className="flex-1 p-6">
+            <div className="space-y-6 max-w-3xl mx-auto w-full">
+              {/* Initial Prompt Bubble */}
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-blue-600" />
                 </div>
-                {stageData.map((stage: any) => {
-                  const Icon = STAGE_ICONS[stage?.stage ?? 1];
-                  const hasData = stage?.completed && stage?.data && Object.values(stage.data ?? {}).some((v: any) => v !== null && v !== undefined);
+                <div className="flex-1">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="font-medium text-sm text-gray-900">{intent?.requester?.name ?? 'User'}</span>
+                    <span className="text-xs text-gray-400">{new Date(intent?.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-800 shadow-sm inline-block">
+                    {intent?.rawInput}
+                  </div>
+                </div>
+              </div>
+
+              {activityFeed.map((item: any) => {
+                if (item.type === 'AUDIT') {
                   return (
-                    <div key={stage.stage} className={cn(
-                      'rounded-lg border p-4',
-                      stage.completed ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-transparent opacity-40'
-                    )}>
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center',
-                          stage.completed ? 'bg-blue-50' : 'bg-gray-100'
-                        )}>
-                          <Icon className={cn('w-4 h-4', stage.completed ? 'text-blue-500' : 'text-gray-300')} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-800">Stage {stage.stage}: {stage.name}</span>
-                            {stage.completed && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-                          </div>
-                        </div>
+                    <div key={item.id} className="flex justify-center my-4">
+                      <div className="bg-white border border-gray-100 shadow-sm rounded-full px-4 py-1.5 flex items-center gap-2 text-xs text-gray-500">
+                        <Clock className="w-3 h-3 text-indigo-400" />
+                        <span>{(item.action ?? '').replace(/_/g, ' ')}</span>
+                        {item.stage && <span className="text-gray-400 ml-1">(Stage {item.stage})</span>}
+                        <span className="text-gray-300 ml-2">{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                       </div>
-                      {hasData && (
-                        <div className="mt-3 ml-11 space-y-1.5">
-                          {Object.entries(stage.data ?? {}).filter(([_, v]: [string, any]) => v !== null && v !== undefined).map(([key, value]: [string, any]) => (
-                            <div key={key} className="flex gap-2 text-sm">
-                              <span className="text-gray-400 font-mono text-xs min-w-[140px]">{key}:</span>
-                              <span className="text-gray-600 text-xs">
-                                {Array.isArray(value) ? (value ?? []).map((v: any) => String(v ?? '')).join(', ') :
-                                 typeof value === 'object' && value !== null ? JSON.stringify(value) :
-                                 typeof value === 'boolean' ? (value ? 'Yes' : 'No') :
-                                 typeof value === 'number' ? (value as number)?.toFixed?.(2) ?? '0' :
-                                 String(value ?? '')}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   );
-                })}
-              </div>
-            )}
-          </div>
+                }
 
-          {/* Review Tasks */}
-          {(intent?.reviewTasks?.length ?? 0) > 0 && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Shield className="w-4 h-4 text-orange-500" />
-                <span className="text-gray-900 font-medium">Review Tasks</span>
-              </div>
-              <div className="space-y-3">
-                {(intent.reviewTasks ?? []).map((task: any) => (
-                  <div key={task?.id} className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-800">Assigned to: {task?.assignee?.name ?? 'Unassigned'}</p>
-                        <p className="text-xs text-gray-400">SLA: {task?.slaDeadline ? new Date(task.slaDeadline).toLocaleDateString('en-US', { timeZone: 'UTC' }) : 'N/A'}</p>
-                      </div>
-                      {task?.decision ? (
-                        <Badge variant={task.decision === 'APPROVE' ? 'default' : 'destructive'}>
-                          {task.decision}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-orange-500 border-orange-300">Pending</Badge>
-                      )}
+                // Chat Comment
+                const isSystem = item.user?.role === 'SYSTEM' || !item.user;
+                return (
+                  <div key={item.id} className="flex gap-4">
+                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", isSystem ? "bg-indigo-100" : "bg-blue-100")}>
+                      {isSystem ? <FlowIcon className="w-4 h-4 text-indigo-600" /> : <User className="w-4 h-4 text-blue-600" />}
                     </div>
-                    {task?.reason && <p className="text-sm text-gray-500 mt-2">{task.reason}</p>}
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="font-medium text-sm text-gray-900">{item.user?.name ?? 'System'}</span>
+                        <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      <div className={cn("border rounded-2xl rounded-tl-sm px-4 py-3 text-sm shadow-sm inline-block",
+                        isSystem ? "bg-indigo-50/50 border-indigo-100 text-indigo-900" : "bg-white border-gray-200 text-gray-800"
+                      )}>
+                        {item.content}
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
-
-
-
-          {/* Audit Log */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <button onClick={() => toggleSection('audit')} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-indigo-500" />
-                <span className="text-gray-900 font-medium">Audit Trail ({intent?.auditLogs?.length ?? 0})</span>
-              </div>
-              {expandedSections?.audit ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-            </button>
-            {expandedSections?.audit && (
-              <div className="px-5 pb-5">
-                <div className="space-y-2">
-                  {(intent?.auditLogs ?? []).map((log: any) => (
-                    <div key={log?.id} className="flex items-center gap-3 text-sm py-2 border-b border-gray-100 last:border-0">
-                      <div className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span className="text-gray-700">{(log?.action ?? '').replace(/_/g, ' ')}</span>
-                        {log?.stage && <span className="text-gray-400 ml-2">Stage {log.stage}</span>}
-                      </div>
-                      <span className="text-xs text-gray-300">{new Date(log?.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          </ScrollArea>
+          
+          {/* Chat Input */}
+          <div className="p-4 bg-white border-t border-gray-200">
+            <div className="max-w-3xl mx-auto flex gap-3">
+              <Input
+                placeholder="Type a message or clarify the intent..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(); }}
+                className="flex-1 rounded-full bg-gray-50 border-gray-200 focus-visible:ring-blue-500"
+                disabled={submittingComment}
+              />
+              <Button 
+                size="icon" 
+                className="rounded-full bg-blue-600 hover:bg-blue-700 h-10 w-10 flex-shrink-0"
+                onClick={handleAddComment}
+                disabled={submittingComment || !comment.trim()}
+              >
+                {submittingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
           </div>
         </div>
-      </ScrollArea>
+
+        {/* Right Column: Sidebar Data */}
+        <div className="w-[400px] flex flex-col bg-white overflow-hidden flex-shrink-0">
+          <ScrollArea className="flex-1 p-5">
+            <div className="space-y-6">
+              
+              {/* Metadata */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider text-xs">Intent Context</h3>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span>{new Date(intent?.createdAt).toLocaleDateString('en-US', { timeZone: 'UTC' })}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Tag className="w-4 h-4 text-gray-400" />
+                    <span>{intent?.priority ?? 'MEDIUM'} Priority</span>
+                  </div>
+                  {intent?.businessDomain && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Globe className="w-4 h-4 text-gray-400" />
+                      <span>{intent.businessDomain}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Review Tasks */}
+              {(intent?.reviewTasks?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider text-xs">Review Tasks</h3>
+                  <div className="space-y-3">
+                    {(intent.reviewTasks ?? []).map((task: any) => (
+                      <div key={task?.id} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium text-gray-800">{task?.assignee?.name ?? 'Unassigned'}</p>
+                          {task?.decision ? (
+                            <Badge variant={task.decision === 'APPROVE' ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0">
+                              {task.decision}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-orange-500 border-orange-300 text-[10px] px-1.5 py-0">Pending</Badge>
+                          )}
+                        </div>
+                        {task?.reason && <p className="text-xs text-gray-500">{task.reason}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Lifecycle Stages */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider text-xs">Lifecycle Data</h3>
+                  <button onClick={() => toggleSection('stages')} className="text-gray-400 hover:text-gray-600">
+                    {expandedSections?.stages ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
+                
+                {expandedSections?.stages && (
+                  <div className="space-y-3">
+                    {stageData.map((stage: any) => {
+                      const Icon = STAGE_ICONS[stage?.stage ?? 1];
+                      const hasData = stage?.completed && stage?.data && Object.values(stage.data ?? {}).some((v: any) => v !== null && v !== undefined);
+                      
+                      return (
+                        <div key={stage.stage} className={cn(
+                          'rounded-lg border p-3',
+                          stage.completed ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-transparent opacity-40'
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <Icon className={cn('w-4 h-4', stage.completed ? 'text-blue-500' : 'text-gray-300')} />
+                            <span className="text-xs font-medium text-gray-800 flex-1">{stage.name}</span>
+                            {stage.completed && <CheckCircle2 className="w-3 h-3 text-green-500" />}
+                          </div>
+                          
+                          {hasData && (
+                            <div className="mt-2 pl-6 space-y-1 border-l-2 border-gray-100 ml-2">
+                              {Object.entries(stage.data ?? {}).filter(([_, v]: [string, any]) => v !== null && v !== undefined).map(([key, value]: [string, any]) => (
+                                <div key={key} className="text-xs">
+                                  <span className="text-gray-400 font-mono text-[10px] block mb-0.5">{key}</span>
+                                  <span className="text-gray-700 break-words">
+                                    {Array.isArray(value) ? (value ?? []).map((v: any) => String(v ?? '')).join(', ') :
+                                     typeof value === 'object' && value !== null ? JSON.stringify(value) :
+                                     typeof value === 'boolean' ? (value ? 'Yes' : 'No') :
+                                     typeof value === 'number' ? (value as number)?.toFixed?.(2) ?? '0' :
+                                     String(value ?? '')}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
     </div>
   );
 }
