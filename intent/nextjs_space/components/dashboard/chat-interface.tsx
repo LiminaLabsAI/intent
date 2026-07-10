@@ -23,7 +23,7 @@ interface StageResult {
 
 interface ChatMessage {
   id: string;
-  type: 'user' | 'system';
+  type: 'user' | 'assistant' | 'pipeline';
   content: string;
   intentId?: string;
   dbId?: string;
@@ -37,13 +37,7 @@ interface ChatMessage {
 }
 
 const STAGE_ICONS: Record<number, any> = {
-  1: Target,
-  2: Layers,
-  3: Zap,
-  4: Zap,
-  5: FileCheck,
-  6: Scale,
-  7: Hash,
+  1: Target, 2: Layers, 3: Zap, 4: Zap, 5: FileCheck, 6: Scale, 7: Hash,
 };
 
 export function ChatInterface() {
@@ -53,11 +47,17 @@ export function ChatInterface() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [processing, setProcessing] = useState(false);
+  
+  // Interactive clarification state
+  const [pendingClarificationId, setPendingClarificationId] = useState<string | null>(null);
+  const [pendingClarificationQuestions, setPendingClarificationQuestions] = useState<string[]>([]);
+  const [selectedParentId, setSelectedParentId] = useState<string>('');
+
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
-  const [showExecutionPayload, setShowExecutionPayload] = useState<Record<string, boolean>>({});
   const [activeFormat, setActiveFormat] = useState<Record<string, 'human' | 'json' | 'md' | 'okf'>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [parsedText, setParsedText] = useState<string>('');
   const [isParsing, setIsParsing] = useState(false);
@@ -74,27 +74,15 @@ export function ChatInterface() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/intents/parse-document', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to parse document');
-      }
-
+      const res = await fetch('/api/intents/parse-document', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Failed to parse document');
       const data = await res.json();
       setParsedText(data.content || '');
     } catch (err: any) {
       console.error(err);
-      setMessages((prev: any) => [
+      setMessages((prev) => [
         ...(prev ?? []),
-        {
-          id: `err-${Date.now()}`,
-          type: 'system',
-          content: `Error reading file "${file.name}": ${err.message || 'Unknown error'}`,
-          timestamp: new Date().toISOString(),
-        },
+        { id: `err-${Date.now()}`, type: 'assistant', content: `Error reading file "${file.name}": ${err.message || 'Unknown error'}`, timestamp: new Date().toISOString() },
       ]);
       clearAttachment();
     } finally {
@@ -118,22 +106,14 @@ export function ChatInterface() {
 
   const toggleStage = (messageId: string, stageNum: number) => {
     const key = `${messageId}-${stageNum}`;
-    setExpandedStages((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setExpandedStages((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const processIntentStream = async (dbId: string, systemMsgId: string) => {
+  const processIntentStream = async (dbId: string, pipelineMsgId: string) => {
     setProcessing(true);
     try {
-      const processRes = await fetch(`/api/intents/${dbId}/process`, {
-        method: 'POST',
-      });
-
-      if (!processRes.ok) {
-        throw new Error('Failed to start processing');
-      }
+      const processRes = await fetch(`/api/intents/${dbId}/process`, { method: 'POST' });
+      if (!processRes.ok) throw new Error('Failed to start processing');
 
       const reader = processRes.body?.getReader();
       if (!reader) throw new Error('No response stream');
@@ -156,76 +136,78 @@ export function ChatInterface() {
               const event = JSON.parse(dataStr);
 
               if (event?.type === 'stage_start') {
-                setMessages((prev: any) => {
+                setMessages((prev) => {
                   const msgs = [...(prev ?? [])];
-                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-                  if (sysMsg) {
-                    const exists = sysMsg.stages?.some((s: any) => s?.stage === event?.stage);
+                  const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+                  if (pipeMsg) {
+                    const exists = pipeMsg.stages?.some((s) => s?.stage === event?.stage);
                     if (!exists) {
-                      sysMsg.stages = [
-                        ...(sysMsg.stages ?? []),
-                        { stage: event.stage, stageName: event.stageName, status: 'processing' as const },
-                      ];
+                      pipeMsg.stages = [...(pipeMsg.stages ?? []), { stage: event.stage, stageName: event.stageName, status: 'processing' }];
                     } else {
-                      sysMsg.stages = sysMsg.stages?.map((s: any) =>
-                        s?.stage === event?.stage ? { ...s, status: 'processing' as const } : s
-                      );
+                      pipeMsg.stages = pipeMsg.stages?.map((s) => s?.stage === event?.stage ? { ...s, status: 'processing' } : s);
                     }
-                    sysMsg.content = event?.message ?? 'Processing...';
+                    pipeMsg.content = event?.message ?? 'Processing...';
                   }
                   return msgs;
                 });
               } else if (event?.type === 'stage_complete') {
-                setMessages((prev: any) => {
+                setMessages((prev) => {
                   const msgs = [...(prev ?? [])];
-                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-                  if (sysMsg) {
-                    const stageIdx = sysMsg.stages?.findIndex((s: any) => s?.stage === event?.stage);
-                    if (stageIdx !== undefined && stageIdx >= 0 && sysMsg.stages?.[stageIdx]) {
-                      sysMsg.stages[stageIdx].status = 'completed';
-                      sysMsg.stages[stageIdx].data = event?.data;
+                  const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+                  if (pipeMsg) {
+                    const stageIdx = pipeMsg.stages?.findIndex((s) => s?.stage === event?.stage);
+                    if (stageIdx !== undefined && stageIdx >= 0 && pipeMsg.stages?.[stageIdx]) {
+                      pipeMsg.stages[stageIdx].status = 'completed';
+                      pipeMsg.stages[stageIdx].data = event?.data;
                     }
                   }
                   return msgs;
                 });
-                setExpandedStages((prev) => ({
-                  ...prev,
-                  [`${systemMsgId}-${event.stage}`]: true,
-                }));
               } else if (event?.type === 'needs_clarification') {
-                setMessages((prev: any) => {
+                setMessages((prev) => {
                   const msgs = [...(prev ?? [])];
-                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-                  if (sysMsg) {
-                    sysMsg.needsClarification = true;
-                    sysMsg.clarifyingQuestions = event.questions;
-                    sysMsg.similarIntents = event.similarIntents;
-                    sysMsg.content = 'Ambiguity detected. Clarification is required.';
-                  }
-                  return msgs;
+                  const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+                  if (pipeMsg) pipeMsg.content = 'Pipeline paused for clarification.';
+
+                  const astMsg: ChatMessage = {
+                    id: `ast-${Date.now()}`,
+                    type: 'assistant',
+                    content: 'I noticed some ambiguity in your request. Please clarify the following so I can proceed:\n\n' + (event.questions || []).map((q: string, i: number) => `${i+1}. ${q}`).join('\n\n'),
+                    needsClarification: true,
+                    similarIntents: event.similarIntents,
+                    timestamp: new Date().toISOString()
+                  };
+                  return [...msgs, astMsg];
                 });
+                setPendingClarificationId(dbId);
+                setPendingClarificationQuestions(event.questions || []);
               } else if (event?.type === 'pipeline_complete') {
-                setMessages((prev: any) => {
+                setMessages((prev) => {
                   const msgs = [...(prev ?? [])];
-                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-                  if (sysMsg) {
-                    sysMsg.finalIntent = event?.data;
-                    sysMsg.intentId = event?.data?.id;
-                    sysMsg.content = 'Pipeline completed!';
-                  }
-                  return msgs;
+                  const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+                  if (pipeMsg) pipeMsg.content = 'Pipeline completed successfully!';
+
+                  const astMsg: ChatMessage = {
+                    id: `ast-${Date.now()}`,
+                    type: 'assistant',
+                    content: 'Your intent has been fully analyzed and approved! Here is the finalized vision and structured payload.',
+                    finalIntent: event?.data,
+                    intentId: event?.data?.id,
+                    timestamp: new Date().toISOString()
+                  };
+                  return [...msgs, astMsg];
                 });
                 setExpandedStages({});
               } else if (event?.type === 'error') {
-                setMessages((prev: any) => {
+                setMessages((prev) => {
                   const msgs = [...(prev ?? [])];
-                  const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-                  if (sysMsg) {
-                    sysMsg.error = event?.message ?? 'Processing error';
+                  const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+                  if (pipeMsg) {
+                    pipeMsg.error = event?.message ?? 'Processing error';
                     if (event?.stage) {
-                      const stageIdx = sysMsg.stages?.findIndex((s: any) => s?.stage === event?.stage);
-                      if (stageIdx !== undefined && stageIdx >= 0 && sysMsg.stages?.[stageIdx]) {
-                        sysMsg.stages[stageIdx].status = 'failed';
+                      const stageIdx = pipeMsg.stages?.findIndex((s) => s?.stage === event?.stage);
+                      if (stageIdx !== undefined && stageIdx >= 0 && pipeMsg.stages?.[stageIdx]) {
+                        pipeMsg.stages[stageIdx].status = 'failed';
                       }
                     }
                   }
@@ -233,18 +215,16 @@ export function ChatInterface() {
                 });
               }
             } catch (e) {
-              // skip
+              // skip parse error
             }
           }
         }
       }
     } catch (error: any) {
-      setMessages((prev: any) => {
+      setMessages((prev) => {
         const msgs = [...(prev ?? [])];
-        const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-        if (sysMsg) {
-          sysMsg.error = error?.message ?? 'Failed to process intent';
-        }
+        const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+        if (pipeMsg) pipeMsg.error = error?.message ?? 'Failed to process intent';
         return msgs;
       });
     } finally {
@@ -258,63 +238,75 @@ export function ChatInterface() {
 
     let rawInputText = trimmed;
     if (attachedFile && parsedText) {
-      if (trimmed) {
-        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---\n\nUser Request: ${trimmed}`;
-      } else {
-        rawInputText = `Document: ${attachedFile.name}\n---\n${parsedText}\n---`;
-      }
+      rawInputText = trimmed ? `Document: ${attachedFile.name}\n---\n${parsedText}\n---\n\nUser Request: ${trimmed}` : `Document: ${attachedFile.name}\n---\n${parsedText}\n---`;
     }
 
     const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `usr-${Date.now()}`,
       type: 'user',
       content: rawInputText,
       timestamp: new Date().toISOString(),
     };
 
-    const systemMsgId = `msg-${Date.now() + 1}`;
-    const systemMsg: ChatMessage = {
-      id: systemMsgId,
-      type: 'system',
-      content: 'Processing intent through the lifecycle pipeline...',
+    const pipelineMsgId = `pipe-${Date.now() + 1}`;
+    const pipelineMsg: ChatMessage = {
+      id: pipelineMsgId,
+      type: 'pipeline',
+      content: pendingClarificationId ? 'Resuming pipeline...' : 'Processing intent through the lifecycle pipeline...',
       stages: [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: rawInputText } }],
       timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev: any) => [...(prev ?? []), userMsg, systemMsg]);
+    setMessages((prev) => {
+      const updatedMsgs = [...(prev ?? [])].map(m => m.needsClarification ? { ...m, needsClarification: false } : m);
+      return [...updatedMsgs, userMsg, pipelineMsg];
+    });
+    
     setInput('');
     clearAttachment();
     setProcessing(true);
 
     try {
-      const createRes = await fetch('/api/intents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rawInput: rawInputText }),
-      });
+      if (pendingClarificationId) {
+        const answers: Record<string, string> = {};
+        pendingClarificationQuestions.forEach(q => answers[q] = rawInputText);
+        
+        const res = await fetch(`/api/intents/${pendingClarificationId}/clarify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers, parentId: selectedParentId || undefined }),
+        });
+        
+        const currentId = pendingClarificationId;
+        setPendingClarificationId(null);
+        setPendingClarificationQuestions([]);
+        setSelectedParentId('');
 
-      if (!createRes.ok) {
-        throw new Error('Failed to create intent');
+        if (!res.ok) throw new Error('Failed to submit clarification');
+        await processIntentStream(currentId, pipelineMsgId);
+        
+      } else {
+        const createRes = await fetch('/api/intents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawInput: rawInputText }),
+        });
+
+        if (!createRes.ok) throw new Error('Failed to create intent');
+        const intent = await createRes.json();
+        setMessages((prev) => {
+          const msgs = [...(prev ?? [])];
+          const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+          if (pipeMsg) pipeMsg.dbId = intent?.id;
+          return msgs;
+        });
+        await processIntentStream(intent?.id, pipelineMsgId);
       }
-
-      const intent = await createRes.json();
-      setMessages((prev: any) => {
-        const msgs = [...(prev ?? [])];
-        const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-        if (sysMsg) {
-          sysMsg.dbId = intent?.id;
-        }
-        return msgs;
-      });
-
-      await processIntentStream(intent?.id, systemMsgId);
     } catch (error: any) {
-      setMessages((prev: any) => {
+      setMessages((prev) => {
         const msgs = [...(prev ?? [])];
-        const sysMsg = msgs.find((m: any) => m?.id === systemMsgId);
-        if (sysMsg) {
-          sysMsg.error = error?.message ?? 'Failed to process intent';
-        }
+        const pipeMsg = msgs.find((m) => m?.id === pipelineMsgId);
+        if (pipeMsg) pipeMsg.error = error?.message ?? 'Failed to process intent';
         return msgs;
       });
       setProcessing(false);
@@ -331,7 +323,7 @@ export function ChatInterface() {
   const renderStageData = (data: any) => {
     if (!data) return null;
     return (
-      <div className="space-y-2 text-sm">
+      <div className="space-y-2 text-sm text-left">
         {Object.entries(data ?? {}).filter(([k]) => k !== 'similarIntents' && k !== 'similaritySummary').map(([key, value]: [string, any]) => (
           <div key={key} className="flex gap-2">
             <span className="text-gray-400 min-w-[120px] font-mono text-xs">{key}:</span>
@@ -354,84 +346,42 @@ export function ChatInterface() {
             </span>
           </div>
         ))}
-        {data.similarIntents && data.similarIntents.length > 0 && (
-          <div className="mt-3 border-t border-gray-100 pt-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 block">Matching Past Intents:</span>
-              {data.similaritySummary && (
-                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">
-                  Found {data.similaritySummary.totalCount} ({data.similaritySummary.approvedCount} approved)
-                </span>
-              )}
-            </div>
-
-            {data.similaritySummary?.recommendation && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5 leading-relaxed font-sans">
-                💡 <strong>LLM Recommendation:</strong> {data.similaritySummary.recommendation}
-              </p>
-            )}
-
-            <div className="space-y-1.5 animate-fadeIn">
-              {data.similarIntents.map((item: any) => (
-                <div key={item.id} className="text-xs bg-gray-50 border border-gray-150 rounded px-2.5 py-1.5 flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <span className="font-mono text-blue-600 font-medium mr-1.5">{item.intentId || 'INT-NEW'}</span>
-                    <span className="text-gray-700 truncate block sm:inline">{item.rawInput}</span>
-                  </div>
-                  <span className={cn(
-                    'text-[10px] font-semibold ml-2 px-1.5 py-0.5 rounded',
-                    item.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                    item.status === 'NEEDS_CLARIFICATION' ? 'bg-orange-100 text-orange-800' :
-                    'bg-gray-100 text-gray-800'
-                  )}>{item.status.replace(/_/g, ' ')}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-white">
-      {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+    <div className="flex-1 flex flex-col h-screen bg-gray-50/50">
+      <div className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm z-10">
         <div className="flex items-center gap-3">
           <FlowIcon />
           <div>
-            <h1 className="text-lg font-display font-semibold text-gray-900">Intent Processing</h1>
-            <p className="text-xs text-gray-400">Submit natural language intents for automated lifecycle processing</p>
+            <h1 className="text-lg font-display font-semibold text-gray-900">Flow Assistant</h1>
+            <p className="text-xs text-gray-400">Interactive Intent Processing</p>
           </div>
         </div>
       </div>
 
-      {/* Messages */}
       <ScrollArea className="flex-1 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {(messages ?? []).length === 0 && (
-            <div className="text-center py-20">
+            <div className="text-center py-20 animate-fadeIn">
               <div className="w-20 h-20 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-6">
-                <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10">
-                  <path d="M4 6C4 6 8 4 12 8C16 12 20 10 20 10" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
-                  <path d="M4 14C4 14 8 12 12 16C16 20 20 18 20 18" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-                </svg>
+                <FlowIcon className="w-10 h-10" />
               </div>
-              <h2 className="text-2xl font-display font-bold text-gray-900 mb-2 tracking-tight">Welcome to Flow</h2>
+              <h2 className="text-2xl font-display font-bold text-gray-900 mb-2 tracking-tight">How can I help you?</h2>
               <p className="text-gray-500 max-w-md mx-auto mb-8">
-                Describe your intent in natural language. The system will process it through
-                7 lifecycle stages — from capture to approved Intent ID.
+                I am your Flow Assistant. Tell me what you want to achieve, and I will process your intent, clarify any ambiguities, and generate a standardized payload.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto">
                 {[
-                  'Migrate customer database from legacy system to cloud',
-                  'Generate quarterly sales performance report for Q2',
-                  'Update access control policies for production servers',
+                  'Migrate customer database to cloud',
+                  'Generate quarterly sales report for Q2',
                 ].map((example: string, i: number) => (
                   <button
                     key={i}
                     onClick={() => setInput(example)}
-                    className="p-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-gray-800 transition-all text-left"
+                    className="p-3 rounded-xl bg-white border border-gray-200 text-sm text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-gray-800 transition-all text-left shadow-sm"
                   >
                     <ArrowRight className="w-3 h-3 text-blue-500 mb-1" />
                     {example}
@@ -441,482 +391,232 @@ export function ChatInterface() {
             </div>
           )}
 
-          {(messages ?? []).map((msg: ChatMessage) => (
-            <div key={msg.id} className={cn('flex gap-3', msg.type === 'user' ? 'justify-end' : 'justify-start')}>
-              {msg.type === 'system' && (
-                <FlowIcon className="flex-shrink-0 mt-1" />
-              )}
-              <div className={cn(
-                'max-w-3xl rounded-2xl',
-                msg.type === 'user'
-                  ? 'bg-blue-50 border border-blue-100 px-5 py-3'
-                  : 'bg-gray-50 border border-gray-200 px-5 py-4 w-full'
+          {(messages ?? []).map((msg: ChatMessage) => {
+            const isUser = msg.type === 'user';
+            const isPipeline = msg.type === 'pipeline';
+            const isAssistant = msg.type === 'assistant';
+            
+            return (
+              <div key={msg.id} className={cn('flex w-full', 
+                isUser ? 'justify-end' : isPipeline ? 'justify-center' : 'justify-start'
               )}>
-                {msg.type === 'user' ? (
-                  <p className="text-gray-800 text-sm">{msg.content}</p>
-                ) : (
-                  <div className="space-y-3">
-                    {/* Stage pipeline */}
-                    <div className="space-y-2">
-                      {(msg.stages ?? []).map((stage: StageResult) => {
-                        const StageIcon = STAGE_ICONS[stage?.stage ?? 1] ?? Target;
-                        const isExpanded = expandedStages[`${msg.id}-${stage?.stage}`];
-                        return (
-                          <div key={stage?.stage} className="rounded-xl bg-white border border-gray-100 overflow-hidden">
-                            <button
-                              onClick={() => toggleStage(msg.id, stage?.stage ?? 0)}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                            >
-                              <div className={cn(
-                                'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0',
-                                stage?.status === 'completed' ? 'bg-green-50' :
-                                stage?.status === 'failed' ? 'bg-red-50' :
-                                'bg-blue-50'
-                              )}>
-                                {stage?.status === 'processing' ? (
-                                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-                                ) : stage?.status === 'completed' ? (
-                                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                ) : (
-                                  <XCircle className="w-4 h-4 text-red-500" />
-                                )}
-                              </div>
-                              <div className="flex-1 text-left">
-                                <div className="flex items-center gap-2">
-                                  <StageIcon className="w-3.5 h-3.5 text-gray-400" />
-                                  <span className="text-sm font-medium text-gray-800">Stage {stage?.stage}: {stage?.stageName}</span>
-                                </div>
-                              </div>
-                              {stage?.data && (
-                                isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
-                              )}
-                            </button>
-                            {isExpanded && stage?.data && (
-                              <div className="px-4 pb-3 border-t border-gray-100 pt-3">
-                                {renderStageData(stage.data)}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                <div className={cn('flex max-w-3xl gap-3 animate-fadeIn', isUser ? 'flex-row-reverse' : 'flex-row')}>
+                  
+                  {isUser && (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 mt-auto text-white text-xs font-bold shadow-sm">
+                      {((session?.user as any)?.name ?? 'U').charAt(0).toUpperCase()}
                     </div>
+                  )}
+                  {isAssistant && (
+                    <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 mt-auto shadow-sm p-1.5">
+                      <FlowIcon />
+                    </div>
+                  )}
 
-                    {/* Clarification Form */}
-                    {msg.needsClarification && msg.clarifyingQuestions && msg.clarifyingQuestions.length > 0 && (
-                      <ClarificationForm
-                        intentId={msg.dbId ?? ''}
-                        questions={msg.clarifyingQuestions}
-                        similarIntents={msg.similarIntents ?? []}
-                        onClarified={(refinedText) => {
-                          setMessages((prev: any) => {
-                            const msgs = [...(prev ?? [])];
-                            const sysMsg = msgs.find((m: any) => m?.id === msg.id);
-                            if (sysMsg) {
-                              sysMsg.needsClarification = false;
-                              sysMsg.stages = [{ stage: 1, stageName: 'Intent Capture', status: 'completed', data: { rawInput: refinedText } }];
-                              sysMsg.finalIntent = null;
-                              sysMsg.error = null;
-                              sysMsg.content = 'Clarifications submitted. Retrying processing...';
-                            }
-                            return msgs;
-                          });
-                          processIntentStream(msg.dbId ?? '', msg.id);
-                        }}
-                      />
-                    )}
+                  {isPipeline ? (
+                    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm text-center flex flex-col items-center">
+                      <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                        {processing && !msg.error && msg.stages?.some(s => s.status === 'processing') ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                        ) : msg.error ? (
+                          <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                        )}
+                        <span>{msg.content}</span>
+                        {msg.stages && msg.stages.length > 0 && (
+                          <button 
+                            onClick={() => setExpandedStages(prev => ({...prev, [msg.id]: !prev[msg.id]}))}
+                            className="text-blue-600 hover:underline ml-1 focus:outline-none flex items-center"
+                          >
+                            {expandedStages[msg.id] ? 'Hide Audit Log' : 'View Audit Log'}
+                            {expandedStages[msg.id] ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+                          </button>
+                        )}
+                      </div>
 
-                    {/* Final result */}
-                    {msg.finalIntent && (() => {
-                      const payload = {
-                        intentId: msg.finalIntent.intentId,
-                        timestamp: msg.finalIntent.approvedAt || msg.finalIntent.createdAt,
-                        action: msg.finalIntent.intentType || 'OTHER',
-                        businessObjective: msg.finalIntent.businessObjective || '',
-                        domain: msg.finalIntent.businessDomain || '',
-                        scope: msg.finalIntent.normalizedScope || msg.finalIntent.scope || '',
-                        entities: msg.finalIntent.entities || [],
-                        actions: msg.finalIntent.actions || [],
-                        parameters: msg.finalIntent.ontologyMappings || {},
-                        detailedVision: msg.finalIntent.standardizedIntent || ''
-                      };
-                      const payloadStr = JSON.stringify(payload, null, 2);
-
-                      const payloadMd = `# Intent Registration: ${msg.finalIntent.intentId}
-- **Status**: ${msg.finalIntent.status}
-- **Domain**: ${msg.finalIntent.businessDomain || 'N/A'}
-- **Action Type**: ${msg.finalIntent.intentType || 'OTHER'}
-- **Approved At**: ${msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : 'N/A'}
-
-## Detailed Vision
-${msg.finalIntent.standardizedIntent}
-
-## Scope & Context
-- **Scope**: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}
-- **Objective**: ${msg.finalIntent.businessObjective || 'N/A'}
-
-## Entities
-${(msg.finalIntent.entities || []).map((e: any) => `- ${e}`).join('\n')}`;
-
-                      const payloadOkf = `[INTENT: ${msg.finalIntent.intentId}]
-Domain    :: ${msg.finalIntent.businessDomain || 'N/A'}
-Action    :: ${msg.finalIntent.intentType || 'OTHER'}
-Objective :: ${msg.finalIntent.businessObjective || 'N/A'}
-Scope     :: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}
-Entities  :: [${(msg.finalIntent.entities || []).join(', ')}]
-
-[DETAILED VISION]
-${msg.finalIntent.standardizedIntent}
-
-[METADATA]
-ApprovedAt:: ${msg.finalIntent.approvedAt || 'N/A'}
-RiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
-
-                      const currentFormat = activeFormat[msg.id] ?? 'human';
-                      const formattedText = currentFormat === 'json' ? payloadStr :
-                                            currentFormat === 'md' ? payloadMd :
-                                            currentFormat === 'okf' ? payloadOkf : '';
-
-                      return (
-                        <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-5 mt-4 space-y-4 animate-fadeIn">
-                          <div className="flex items-center gap-2 pb-3 border-b border-blue-100/50">
-                            <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                            <div>
-                              <span className="font-semibold text-gray-900 text-sm block">Intent Approved & Registered</span>
-                              <span className="text-[10px] text-gray-400">Created: {new Date(msg.finalIntent.createdAt).toLocaleString()}</span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3.5 text-sm">
-                            {/* Intent ID */}
-                            {msg.finalIntent.intentId && (
-                              <div>
-                                <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Intent ID</span>
-                                <p className="font-mono text-blue-600 font-bold text-base mt-0.5">{msg.finalIntent.intentId}</p>
-                              </div>
-                            )}
-
-                            {/* Detailed Vision & Format Tabs */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Detailed Vision</span>
-                              </div>
-
-                              <div className="space-y-2">
-                                {/* Format tabs */}
-                                <div className="flex border-b border-gray-200">
-                                  {([
-                                    { id: 'human', label: 'Human Readable' },
-                                    { id: 'json', label: 'JSON Payload' },
-                                    { id: 'md', label: '.MD (Markdown)' },
-                                    { id: 'okf', label: 'OKF (Ontology)' },
-                                  ] as const).map((tab) => (
-                                    <button
-                                      key={tab.id}
-                                      type="button"
-                                      onClick={() => setActiveFormat(prev => ({ ...prev, [msg.id]: tab.id }))}
-                                      className={cn(
-                                        'px-3 py-1 text-xs font-medium border-b-2 transition-all -mb-[1px]',
-                                        currentFormat === tab.id
-                                          ? 'border-blue-600 text-blue-600'
-                                          : 'border-transparent text-gray-400 hover:text-gray-600'
-                                      )}
-                                    >
-                                      {tab.label}
-                                    </button>
-                                  ))}
-                                </div>
-
-                                {currentFormat === 'human' ? (
-                                  <p className="text-gray-800 text-sm mt-0.5 leading-relaxed bg-white border border-gray-150 rounded-lg p-3 shadow-sm whitespace-pre-wrap">
-                                    {msg.finalIntent.standardizedIntent}
-                                  </p>
-                                ) : (
-                                  <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3.5 font-mono text-xs overflow-x-auto shadow-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(formattedText);
-                                      }}
-                                      className="absolute right-2.5 top-2.5 text-[10px] bg-gray-800 text-gray-300 hover:text-white px-2 py-1 rounded border border-gray-700 transition-colors"
-                                    >
-                                      Copy Payload
-                                    </button>
-                                    <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap">{formattedText}</pre>
+                      {expandedStages[msg.id] && msg.stages && (
+                        <div className="mt-3 w-full max-w-lg space-y-1.5 border-t border-gray-100 pt-3">
+                          {msg.stages.map((stage) => {
+                            const StageIcon = STAGE_ICONS[stage?.stage ?? 1] ?? Target;
+                            const isStageExpanded = expandedStages[`${msg.id}-${stage?.stage}`];
+                            return (
+                              <div key={stage?.stage} className="rounded-lg bg-gray-50 border border-gray-150 overflow-hidden text-left">
+                                <button
+                                  onClick={() => toggleStage(msg.id, stage?.stage ?? 0)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 transition-colors"
+                                >
+                                  <div className={cn(
+                                    'w-5 h-5 rounded flex items-center justify-center flex-shrink-0',
+                                    stage?.status === 'completed' ? 'bg-green-100 text-green-600' :
+                                    stage?.status === 'failed' ? 'bg-red-100 text-red-600' :
+                                    'bg-blue-100 text-blue-600'
+                                  )}>
+                                    {stage?.status === 'processing' ? <Loader2 className="w-3 h-3 animate-spin" /> : 
+                                     stage?.status === 'completed' ? <CheckCircle2 className="w-3 h-3" /> : 
+                                     <XCircle className="w-3 h-3" />}
+                                  </div>
+                                  <StageIcon className="w-3 h-3 text-gray-500" />
+                                  <span className="text-xs font-medium text-gray-700 flex-1">Stage {stage?.stage}: {stage?.stageName}</span>
+                                  {stage?.data && (isStageExpanded ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />)}
+                                </button>
+                                {isStageExpanded && stage?.data && (
+                                  <div className="px-3 pb-2 border-t border-gray-150 pt-2 bg-white">
+                                    {renderStageData(stage.data)}
                                   </div>
                                 )}
                               </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {msg.error && (
+                         <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded w-full text-left font-mono">
+                           {msg.error}
+                         </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      'rounded-2xl px-5 py-3.5 shadow-sm text-sm whitespace-pre-wrap',
+                      isUser ? 'bg-green-100 text-green-900 border border-green-200 rounded-br-sm' 
+                             : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
+                    )}>
+                      {msg.content}
+
+                      {msg.needsClarification && msg.similarIntents && msg.similarIntents.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
+                          <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                            <Layers className="w-3 h-3" /> Found matching past intents (Optional Link)
+                          </label>
+                          <select
+                            value={selectedParentId}
+                            onChange={(e) => setSelectedParentId(e.target.value)}
+                            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50 text-gray-700"
+                          >
+                            <option value="">-- Do not link --</option>
+                            {msg.similarIntents.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.intentId || 'INT-NEW'} : {item.rawInput.slice(0, 50)}...
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      
+                      {msg.finalIntent && (() => {
+                        const payload = {
+                          intentId: msg.finalIntent.intentId,
+                          timestamp: msg.finalIntent.approvedAt || msg.finalIntent.createdAt,
+                          action: msg.finalIntent.intentType || 'OTHER',
+                          businessObjective: msg.finalIntent.businessObjective || '',
+                          domain: msg.finalIntent.businessDomain || '',
+                          scope: msg.finalIntent.normalizedScope || msg.finalIntent.scope || '',
+                          entities: msg.finalIntent.entities || [],
+                          actions: msg.finalIntent.actions || [],
+                          parameters: msg.finalIntent.ontologyMappings || {},
+                          detailedVision: msg.finalIntent.standardizedIntent || ''
+                        };
+                        const payloadStr = JSON.stringify(payload, null, 2);
+                        const payloadMd = `# Intent Registration: ${msg.finalIntent.intentId}\n- **Status**: ${msg.finalIntent.status}\n- **Domain**: ${msg.finalIntent.businessDomain || 'N/A'}\n- **Action Type**: ${msg.finalIntent.intentType || 'OTHER'}\n- **Approved At**: ${msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : 'N/A'}\n\n## Detailed Vision\n${msg.finalIntent.standardizedIntent}\n\n## Scope & Context\n- **Scope**: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}\n- **Objective**: ${msg.finalIntent.businessObjective || 'N/A'}\n\n## Entities\n${(msg.finalIntent.entities || []).map((e: any) => `- ${e}`).join('\n')}`;
+                        const payloadOkf = `[INTENT: ${msg.finalIntent.intentId}]\nDomain    :: ${msg.finalIntent.businessDomain || 'N/A'}\nAction    :: ${msg.finalIntent.intentType || 'OTHER'}\nObjective :: ${msg.finalIntent.businessObjective || 'N/A'}\nScope     :: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || 'N/A'}\nEntities  :: [${(msg.finalIntent.entities || []).join(', ')}]\n\n[DETAILED VISION]\n${msg.finalIntent.standardizedIntent}\n\n[METADATA]\nApprovedAt:: ${msg.finalIntent.approvedAt || 'N/A'}\nRiskLevel :: ${msg.finalIntent.riskLevel || 'N/A'}`;
+                        const currentFormat = activeFormat[msg.id] ?? 'human';
+                        const formattedText = currentFormat === 'json' ? payloadStr : currentFormat === 'md' ? payloadMd : currentFormat === 'okf' ? payloadOkf : '';
+
+                        return (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <div className="flex border-b border-gray-200 mb-3">
+                              {([ { id: 'human', label: 'Human Readable' }, { id: 'json', label: 'JSON Payload' }, { id: 'md', label: 'Markdown' }, { id: 'okf', label: 'OKF' } ] as const).map((tab) => (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setActiveFormat(prev => ({ ...prev, [msg.id]: tab.id }))}
+                                  className={cn('px-3 py-1.5 text-xs font-medium border-b-2 transition-all -mb-[1px]', currentFormat === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600')}
+                                >
+                                  {tab.label}
+                                </button>
+                              ))}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                              {/* Status & Approver */}
-                              <div>
-                                <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Status & Approver</span>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold', INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.bgColor, INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.color)}>
-                                    {INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.label ?? msg.finalIntent.status}
-                                  </span>
-                                  <span className="text-xs text-gray-600">
-                                    by {msg.finalIntent.decisionOutcome === 'AUTO_APPROVED' ? 'System (Auto-Approved)' : (msg.finalIntent.requester?.name || 'Authorized Reviewer')}
-                                  </span>
+                            {currentFormat === 'human' ? (
+                              <div className="space-y-3">
+                                <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                                  <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block mb-1">Detailed Vision</span>
+                                  <p className="text-sm text-gray-800 leading-relaxed">{msg.finalIntent.standardizedIntent}</p>
+                                </div>
+                                <div className="flex gap-4">
+                                  <div>
+                                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Status</span>
+                                    <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 inline-block', INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.bgColor, INTENT_STATUS_CONFIG[msg.finalIntent.status as keyof typeof INTENT_STATUS_CONFIG]?.color)}>
+                                      {msg.finalIntent.status}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">ID</span>
+                                    <span className="text-xs font-mono font-bold text-gray-700 mt-1 inline-block">{msg.finalIntent.intentId}</span>
+                                  </div>
                                 </div>
                               </div>
-
-                              {/* Approved At Timestamp */}
-                              <div>
-                                <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">Approved At</span>
-                                <span className="text-xs text-gray-700 block mt-1">
-                                  {msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : 'N/A'}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Linked Evidences */}
-                            {msg.finalIntent.linkedEvidence && Object.keys(msg.finalIntent.linkedEvidence).length > 0 && (
-                              <div>
-                                <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider mb-1">Linked Evidences</span>
-                                <div className="bg-white border border-gray-150 rounded-lg p-3 space-y-1 text-xs font-mono text-gray-600 shadow-sm max-h-32 overflow-y-auto">
-                                  {Object.entries(msg.finalIntent.linkedEvidence).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="flex gap-2">
-                                      <span className="text-gray-400 min-w-[120px]">{key}:</span>
-                                      <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                                    </div>
-                                  ))}
-                                </div>
+                            ) : (
+                              <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3 font-mono text-xs overflow-x-auto shadow-inner">
+                                <button type="button" onClick={() => navigator.clipboard.writeText(formattedText)} className="absolute right-2 top-2 text-[10px] bg-gray-800 text-gray-300 hover:text-white px-2 py-1 rounded border border-gray-700 transition-colors">Copy</button>
+                                <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap">{formattedText}</pre>
                               </div>
                             )}
-                          </div>
 
-                          {/* Interactive Next Steps and Follow-Up Group */}
-                          <div className="flex flex-wrap gap-2 pt-3.5 border-t border-blue-100/50">
-                            <span className="text-xs font-semibold text-gray-500 w-full block mb-1">🤖 Next Steps & Engagements:</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInput(`Explain the approval reasoning and compliance checks for intent ${msg.finalIntent.intentId}.`);
-                                inputRef.current?.focus();
-                              }}
-                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
-                            >
-                              💬 Ask to Explain Decision
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInput(`Generate execution-ready code and deployment scripts for intent ${msg.finalIntent.intentId}.`);
-                                inputRef.current?.focus();
-                              }}
-                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
-                            >
-                              ⚙️ Generate Execution Code
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setInput(`Suggest validation test cases and integration check policies for intent ${msg.finalIntent.intentId}.`);
-                                inputRef.current?.focus();
-                              }}
-                              className="text-xs bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
-                            >
-                              🧪 Suggest Validation Checks
-                            </button>
+                            <div className="flex flex-wrap gap-2 pt-4 mt-2">
+                              <button type="button" onClick={() => { setInput(`Explain the approval reasoning for intent ${msg.finalIntent.intentId}.`); inputRef.current?.focus(); }} className="text-[11px] bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-sm">💬 Explain Decision</button>
+                              <button type="button" onClick={() => { setInput(`Generate execution code for ${msg.finalIntent.intentId}.`); inputRef.current?.focus(); }} className="text-[11px] bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-sm">⚙️ Generate Code</button>
+                            </div>
                           </div>
-
-                          <div className="pt-2 flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => router.push(`/intent/${msg.finalIntent?.id}`)}
-                              className="text-blue-600 hover:text-blue-700 font-semibold text-xs"
-                            >
-                              View Audit History & Comments <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {msg.error && (
-                      <div className="rounded-xl bg-red-50 border border-red-100 p-3 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                        <p className="text-red-600 text-sm">{msg.error}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              {msg.type === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0 mt-1 text-white text-xs font-bold">
-                  {((session?.user as any)?.name ?? 'U').charAt(0).toUpperCase()}
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      {/* Input */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 bg-white p-4">
         <div className="max-w-4xl mx-auto">
-          <div className="relative bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
+          <div className="relative bg-white border border-gray-200 rounded-2xl shadow-sm focus-within:border-green-400 focus-within:shadow-md transition-all">
             {attachedFile && (
               <div className="flex items-center gap-2 px-5 pt-3 text-xs text-gray-500">
                 <span className="bg-gray-100 rounded-md px-2 py-1 flex items-center gap-1 border border-gray-200">
                   <Paperclip className="w-3 h-3 text-gray-400" />
                   <span className="truncate max-w-[200px]">{attachedFile.name}</span>
-                  {isParsing ? (
-                    <span className="text-blue-500 font-medium">(parsing...)</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={clearAttachment}
-                      className="text-gray-400 hover:text-red-500 ml-1"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  {isParsing ? <span className="text-blue-500 font-medium">(parsing...)</span> : <button type="button" onClick={clearAttachment} className="text-gray-400 hover:text-red-500 ml-1"><X className="w-3.5 h-3.5" /></button>}
                 </span>
               </div>
             )}
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={attachedFile ? "Add details or submit the document intent..." : "Describe your intent in natural language or upload a document..."}
-              rows={2}
-              className={cn(
-                "w-full bg-transparent text-gray-800 placeholder:text-gray-400 py-4 pr-14 resize-none focus:outline-none text-sm",
-                attachedFile ? "px-5 pb-4 pt-2" : "pl-12 pr-14"
-              )}
+              placeholder={pendingClarificationId ? "Type your clarification here to resume..." : attachedFile ? "Add details or submit the document intent..." : "Message Flow Assistant..."}
+              rows={1}
+              style={{ minHeight: '56px' }}
+              className={cn("w-full bg-transparent text-gray-800 placeholder:text-gray-400 py-4 pr-14 resize-none focus:outline-none text-sm", attachedFile ? "px-5 pb-4 pt-2" : "pl-12 pr-14")}
               disabled={processing}
             />
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".txt,.md,.json,.csv,.pdf,.docx"
-              className="hidden"
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".txt,.md,.json,.csv,.pdf,.docx" className="hidden" />
+            
             {!attachedFile && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={processing || isParsing}
-                className="absolute left-3 bottom-3 text-gray-400 hover:text-gray-600 rounded-xl"
-              >
-                <Paperclip className="w-4 h-4" />
-              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={processing || isParsing} className="absolute left-3 bottom-3 text-gray-400 hover:text-gray-600 rounded-xl"><Paperclip className="w-4 h-4" /></Button>
             )}
-            <Button
-              onClick={handleSubmit}
-              disabled={(!input?.trim?.() && !parsedText) || processing || isParsing}
-              size="icon"
-              className="absolute right-3 bottom-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-30"
-            >
+            
+            <Button onClick={handleSubmit} disabled={(!input?.trim?.() && !parsedText) || processing || isParsing} size="icon" className={cn("absolute right-3 bottom-3 text-white rounded-xl disabled:opacity-30 transition-colors", pendingClarificationId ? "bg-orange-500 hover:bg-orange-600" : "bg-green-500 hover:bg-green-600")}>
               {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            Every intent is traceable · Every decision is explainable · Every action is governed
-          </p>
+          <p className="text-[10px] text-gray-400 mt-2 text-center font-medium">Flow Assistant processes intents in real-time. All actions are traced in the audit log.</p>
         </div>
       </div>
     </div>
-  );
-}
-
-function ClarificationForm({
-  intentId,
-  questions,
-  similarIntents,
-  onClarified,
-}: {
-  intentId: string;
-  questions: string[];
-  similarIntents: any[];
-  onClarified: (refinedRawInput: string) => void;
-}) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [selectedParentId, setSelectedParentId] = useState<string>('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/intents/${intentId}/clarify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          answers,
-          parentId: selectedParentId || undefined,
-        }),
-      });
-      if (res.ok) {
-        let addedString = '';
-        for (const [q, a] of Object.entries(answers)) {
-          if (a.trim()) {
-            addedString += `\n- ${q}: ${a}`;
-          }
-        }
-        onClarified(addedString);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-4 border border-orange-200 bg-orange-50/50 rounded-xl p-4 space-y-4 animate-fadeIn">
-      <div className="flex items-center gap-2 text-orange-700 font-semibold text-sm">
-        <AlertTriangle className="w-4 h-4 text-orange-500" />
-        <span>Clarification Required to Resolve Ambiguity</span>
-      </div>
-
-      <div className="space-y-3">
-        {questions.map((question, i) => (
-          <div key={i} className="space-y-1.5">
-            <label className="text-xs font-medium text-gray-700 block">{question}</label>
-            <input
-              type="text"
-              required
-              placeholder="Your answer..."
-              value={answers[question] ?? ''}
-              onChange={(e) => setAnswers({ ...answers, [question]: e.target.value })}
-              className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-gray-800"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Similar Intents Linkage */}
-      {similarIntents.length > 0 && (
-        <div className="space-y-1.5 border-t border-gray-150 pt-3">
-          <label className="text-xs font-semibold text-gray-700 block">Link to a matching past intent? (Optional)</label>
-          <select
-            value={selectedParentId}
-            onChange={(e) => setSelectedParentId(e.target.value)}
-            className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-gray-700"
-          >
-            <option value="">-- Select intent to link --</option>
-            {similarIntents.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.intentId || 'INT-NEW'} : {item.rawInput.slice(0, 50)}...
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <Button type="submit" disabled={submitting} className="w-full bg-orange-600 hover:bg-orange-700 text-white text-xs py-2 rounded-lg font-medium">
-        {submitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-        Submit Clarifications & Resume Processing
-      </Button>
-    </form>
   );
 }
