@@ -455,14 +455,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                 stageName: STAGE_NAMES[stage],
                 message: stageError?.message ?? 'Stage processing failed',
               });
-              // Continue to next stage if possible, but for quality gate fail, stop
-              if (stage === 5 && previousResults?.stage5?.qualityGateResult === 'FAIL') {
-                await prisma.intent.update({
-                  where: { id: params.id },
-                  data: { status: 'NEEDS_CLARIFICATION', currentStage: 5 },
-                });
-                break;
-              }
+              
+              // If a stage completely fails (e.g. LLM API failure), we MUST halt the pipeline
+              // otherwise downstream stages will run with missing data and potentially auto-approve.
+              await prisma.intent.update({
+                where: { id: params.id },
+                data: { status: 'FAILED' },
+              });
+              
+              throw stageError;
             }
           }
 
