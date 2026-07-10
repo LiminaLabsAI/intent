@@ -168,7 +168,7 @@ async function callLLMForStage(
     if (process.env.NODE_ENV === 'production' && provider === 'ollama') {
       provider = 'huggingface';
       apiKey = process.env.HUGGINGFACE_API_KEY || apiKey;
-      modelId = 'meta-llama/Llama-3.1-8B-Instruct';
+      modelId = 'google/gemma-4-31B-it:novita';
       endpointUrl = ''; 
     }
 
@@ -182,8 +182,8 @@ async function callLLMForStage(
       const activeKey = apiKey || process.env.ABACUSAI_API_KEY;
       headers['Authorization'] = `Bearer ${activeKey}`;
     } else if (provider === 'huggingface') {
-      const activeModel = modelId || 'meta-llama/Llama-3.1-8B-Instruct';
-      url = endpointUrl || `https://api-inference.huggingface.co/models/${activeModel}/v1/chat/completions`;
+      const activeModel = modelId || 'google/gemma-4-31B-it:novita';
+      url = endpointUrl || `https://router.huggingface.co/v1/chat/completions`;
       headers['Authorization'] = `Bearer ${apiKey}`;
       model = activeModel;
     } else if (provider === 'ollama') {
