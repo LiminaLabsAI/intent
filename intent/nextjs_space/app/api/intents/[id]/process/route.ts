@@ -159,8 +159,13 @@ async function callLLMForStage(
     let endpointUrl = config?.endpoint ?? '';
     let modelId = config?.modelId ?? '';
 
+    // Fallback to ENV variable if missing in DB
+    if (provider === 'huggingface' && !apiKey) {
+      apiKey = process.env.HUGGINGFACE_API_KEY || '';
+    }
+
     // DYNAMIC CLOUD OVERRIDE: Vercel cannot reach localhost Ollama
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && provider === 'ollama') {
       provider = 'huggingface';
       apiKey = process.env.HUGGINGFACE_API_KEY || apiKey;
       modelId = 'meta-llama/Llama-3.1-8B-Instruct';
