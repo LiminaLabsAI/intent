@@ -232,10 +232,8 @@ async function callLLMForStage(
     return parsedData;
 
   } catch (error: any) {
-    console.warn(`[Pipeline Stage ${stage}] LLM API failed. Falling back to local mock generator. Error:`, error.message);
-    // Add brief artificial latency for rich UI visual transition
-    await new Promise(resolve => setTimeout(resolve, 600));
-    return getMockResultForStage(stage, rawInput, previousResults);
+    console.warn(`[Pipeline Stage ${stage}] LLM API failed. Throwing error directly to UI to diagnose:`, error.message);
+    throw error;
   }
 }
 
