@@ -74,9 +74,10 @@ Respond in JSON format with this structure:
   "costCategory": "FREE, TIER_1, TIER_2, CUSTOM_QUOTE",
   "riskLevel": "LOW, MEDIUM, or HIGH",
   "reasoning": "explanation of the decision",
-  "conditions": ["any conditions or prerequisites"]
+  "conditions": ["any conditions or prerequisites"],
+  "conversationalReply": "A natural, conversational response back to the user. If there are similar intents, describe them conversationally, explain the time/effort saved, and ask the user if they want to proceed with the existing intent. If asking a question or needing confirmation, output NEEDS_CLARIFICATION."
 }`,
-      user: `${contextNote}\n\nMake approval decision for this intent:\nRaw: "${rawInput}"\nGoal: "${previousResults?.stage2?.userGoal ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nActionability: ${previousResults?.stage5?.actionabilityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}`
+      user: `${contextNote}\n\nMake approval decision for this intent:\nRaw: "${rawInput}"\nGoal: "${previousResults?.stage2?.userGoal ?? ''}"\nQuality Gate: ${previousResults?.stage5?.qualityGateResult ?? 'N/A'}\nActionability: ${previousResults?.stage5?.actionabilityScore ?? 'N/A'}\nConfidence: ${previousResults?.stage3?.confidenceScore ?? 'N/A'}\nSimilar Intents Found: ${JSON.stringify(previousResults?.stage3?.similarIntents ?? [])}`
     },
   };
   return prompts[stage] ?? { system: '', user: '' };
@@ -123,7 +124,8 @@ function getMockResultForStage(stage: number, rawInput: string, previousResults:
       costCategory: "TIER_1",
       riskLevel: "LOW",
       reasoning: "Intent matches standard transactional criteria and is ready for fulfillment processing.",
-      conditions: []
+      conditions: [],
+      conversationalReply: rawInput.length < 30 ? "I noticed a similar intent that saved 2 hours of work. Should we use that one?" : "Your intent looks fully ready and approved. We will proceed!"
     }
   };
 
@@ -479,6 +481,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           sendEvent({
             type: 'pipeline_complete',
             data: finalIntent,
+            reply: previousResults?.stage6?.conversationalReply || previousResults?.stage5?.conversationalReply || "Your intent has been fully analyzed and processed.",
           });
         } catch (error: any) {
           sendEvent({

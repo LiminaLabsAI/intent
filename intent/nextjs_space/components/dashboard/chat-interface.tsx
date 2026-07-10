@@ -279,8 +279,7 @@ export function ChatInterface() {
                   const astMsg: ChatMessage = {
                     id: `ast-${Date.now()}`,
                     type: "assistant",
-                    content:
-                      "Your intent is ready. Would you like to save it now, or clarify it further?",
+                    content: event?.reply || "Your intent is ready.",
                     finalIntent: event?.data,
                     intentId: event?.data?.id,
                     timestamp: new Date().toISOString(),
@@ -681,31 +680,7 @@ export function ChatInterface() {
                       >
                         {msg.content}
 
-                        {msg.needsClarification &&
-                          msg.similarIntents &&
-                          msg.similarIntents.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
-                              <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                <Layers className="w-3 h-3" /> Found matching past intents
-                              </label>
-                              <div className="space-y-2 mt-2">
-                                {msg.similarIntents.map((item) => (
-                                  <div key={item.id} className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-sm">
-                                    <div className="flex justify-between items-start mb-1">
-                                      <span className="font-semibold text-blue-900">{item.intentId || "INT-NEW"}</span>
-                                      <button 
-                                        onClick={() => setSelectedParentId(item.id)}
-                                        className={cn("text-[10px] px-2 py-1 rounded transition-colors", selectedParentId === item.id ? "bg-blue-600 text-white" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50")}
-                                      >
-                                        {selectedParentId === item.id ? "Selected" : "Link to this"}
-                                      </button>
-                                    </div>
-                                    <p className="text-gray-700 text-xs mt-1">{item.rawInput}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
 
                         {msg.finalIntent &&
                           (() => {
@@ -744,22 +719,7 @@ export function ChatInterface() {
                                   </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2 pt-4 mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => router.push(`/intent/${msg.finalIntent.id || msg.finalIntent.intentId}`)}
-                                    className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors font-medium shadow-sm"
-                                  >
-                                    <Save className="w-3.5 h-3.5" /> Save Intent
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => inputRef.current?.focus()}
-                                    className="flex items-center gap-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2 rounded-full transition-colors font-medium shadow-sm"
-                                  >
-                                    Clarify Further
-                                  </button>
-                                </div>
+
                               </div>
                             );
                           })()}
