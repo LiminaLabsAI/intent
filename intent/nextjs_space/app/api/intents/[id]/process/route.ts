@@ -154,10 +154,18 @@ async function callLLMForStage(
 
     // Read active LLM configuration
     const config = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
-    const provider = config?.provider ?? 'abacusai';
-    const apiKey = config?.apiKey ?? '';
-    const endpointUrl = config?.endpoint ?? '';
-    const modelId = config?.modelId ?? '';
+    let provider = config?.provider ?? 'abacusai';
+    let apiKey = config?.apiKey ?? '';
+    let endpointUrl = config?.endpoint ?? '';
+    let modelId = config?.modelId ?? '';
+
+    // DYNAMIC CLOUD OVERRIDE: Vercel cannot reach localhost Ollama
+    if (process.env.NODE_ENV === 'production') {
+      provider = 'huggingface';
+      apiKey = process.env.HUGGINGFACE_API_KEY || apiKey;
+      modelId = 'meta-llama/Llama-3.1-8B-Instruct';
+      endpointUrl = ''; 
+    }
 
     let url = 'https://apps.abacus.ai/v1/chat/completions';
     let headers: Record<string, string> = {
