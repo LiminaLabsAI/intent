@@ -193,7 +193,8 @@ async function callLLMForStage(
     });
 
     if (!response.ok) {
-      throw new Error(`LLM API error for stage ${stage} via ${provider}: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`LLM API error for stage ${stage} via ${provider}: ${response.status} - ${errorText}`);
     }
 
     const reader = response.body?.getReader();
