@@ -23,6 +23,8 @@ import {
   Paperclip,
   X,
   Check,
+  Download,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -278,7 +280,7 @@ export function ChatInterface() {
                     id: `ast-${Date.now()}`,
                     type: "assistant",
                     content:
-                      "Your intent has been fully analyzed and approved! Here is the finalized vision and structured payload.",
+                      "Your intent is ready. Would you like to save it now, or clarify it further?",
                     finalIntent: event?.data,
                     intentId: event?.data?.id,
                     timestamp: new Date().toISOString(),
@@ -684,179 +686,78 @@ export function ChatInterface() {
                           msg.similarIntents.length > 0 && (
                             <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
                               <label className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                <Layers className="w-3 h-3" /> Found matching
-                                past intents (Optional Link)
+                                <Layers className="w-3 h-3" /> Found matching past intents
                               </label>
-                              <select
-                                value={selectedParentId}
-                                onChange={(e) =>
-                                  setSelectedParentId(e.target.value)
-                                }
-                                className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50 text-gray-700"
-                              >
-                                <option value="">-- Do not link --</option>
+                              <div className="space-y-2 mt-2">
                                 {msg.similarIntents.map((item) => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.intentId || "INT-NEW"} :{" "}
-                                    {item.rawInput.slice(0, 50)}...
-                                  </option>
+                                  <div key={item.id} className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                      <span className="font-semibold text-blue-900">{item.intentId || "INT-NEW"}</span>
+                                      <button 
+                                        onClick={() => setSelectedParentId(item.id)}
+                                        className={cn("text-[10px] px-2 py-1 rounded transition-colors", selectedParentId === item.id ? "bg-blue-600 text-white" : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50")}
+                                      >
+                                        {selectedParentId === item.id ? "Selected" : "Link to this"}
+                                      </button>
+                                    </div>
+                                    <p className="text-gray-700 text-xs mt-1">{item.rawInput}</p>
+                                  </div>
                                 ))}
-                              </select>
+                              </div>
                             </div>
                           )}
 
                         {msg.finalIntent &&
                           (() => {
-                            const payload = {
-                              intentId: msg.finalIntent.intentId,
-                              timestamp:
-                                msg.finalIntent.approvedAt ||
-                                msg.finalIntent.createdAt,
-                              action: msg.finalIntent.intentType || "OTHER",
-                              businessObjective:
-                                msg.finalIntent.businessObjective || "",
-                              domain: msg.finalIntent.businessDomain || "",
-                              scope:
-                                msg.finalIntent.normalizedScope ||
-                                msg.finalIntent.scope ||
-                                "",
-                              entities: msg.finalIntent.entities || [],
-                              actions: msg.finalIntent.actions || [],
-                              parameters:
-                                msg.finalIntent.ontologyMappings || {},
-                              detailedVision:
-                                msg.finalIntent.standardizedIntent || "",
-                            };
-                            const payloadStr = JSON.stringify(payload, null, 2);
                             const payloadMd = `# Intent Registration: ${msg.finalIntent.intentId}\n- **Status**: ${msg.finalIntent.status}\n- **Domain**: ${msg.finalIntent.businessDomain || "N/A"}\n- **Action Type**: ${msg.finalIntent.intentType || "OTHER"}\n- **Approved At**: ${msg.finalIntent.approvedAt ? new Date(msg.finalIntent.approvedAt).toLocaleString() : "N/A"}\n\n## Detailed Vision\n${msg.finalIntent.standardizedIntent}\n\n## Scope & Context\n- **Scope**: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || "N/A"}\n- **Objective**: ${msg.finalIntent.businessObjective || "N/A"}\n\n## Entities\n${(msg.finalIntent.entities || []).map((e: any) => `- ${e}`).join("\n")}`;
                             const payloadOkf = `[INTENT: ${msg.finalIntent.intentId}]\nDomain    :: ${msg.finalIntent.businessDomain || "N/A"}\nAction    :: ${msg.finalIntent.intentType || "OTHER"}\nObjective :: ${msg.finalIntent.businessObjective || "N/A"}\nScope     :: ${msg.finalIntent.normalizedScope || msg.finalIntent.scope || "N/A"}\nEntities  :: [${(msg.finalIntent.entities || []).join(", ")}]\n\n[DETAILED VISION]\n${msg.finalIntent.standardizedIntent}\n\n[METADATA]\nApprovedAt:: ${msg.finalIntent.approvedAt || "N/A"}\nRiskLevel :: ${msg.finalIntent.riskLevel || "N/A"}`;
-                            const currentFormat =
-                              activeFormat[msg.id] ?? "human";
-                            const formattedText =
-                              currentFormat === "json"
-                                ? payloadStr
-                                : currentFormat === "md"
-                                  ? payloadMd
-                                  : currentFormat === "okf"
-                                    ? payloadOkf
-                                    : "";
 
                             return (
                               <div className="mt-4 pt-4 border-t border-gray-100">
-                                <div className="flex border-b border-gray-200 mb-3">
-                                  {(
-                                    [
-                                      { id: "human", label: "Human Readable" },
-                                      { id: "json", label: "JSON Payload" },
-                                      { id: "md", label: "Markdown" },
-                                      { id: "okf", label: "OKF" },
-                                    ] as const
-                                  ).map((tab) => (
+                                <div className="space-y-3 relative">
+                                  <div className="absolute -top-3 right-0 flex gap-2">
                                     <button
-                                      key={tab.id}
                                       type="button"
-                                      onClick={() =>
-                                        setActiveFormat((prev) => ({
-                                          ...prev,
-                                          [msg.id]: tab.id,
-                                        }))
-                                      }
-                                      className={cn(
-                                        "px-3 py-1.5 text-xs font-medium border-b-2 transition-all -mb-[1px]",
-                                        currentFormat === tab.id
-                                          ? "border-blue-600 text-blue-600"
-                                          : "border-transparent text-gray-400 hover:text-gray-600",
-                                      )}
+                                      onClick={() => navigator.clipboard.writeText(payloadMd)}
+                                      className="text-gray-400 hover:text-blue-500 transition-colors group relative flex items-center gap-1"
+                                      title="Copy Markdown"
                                     >
-                                      {tab.label}
+                                      <Download className="w-3.5 h-3.5" /> <span className="text-[10px] font-medium hidden group-hover:inline">MD</span>
                                     </button>
-                                  ))}
-                                </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(payloadOkf)}
+                                      className="text-gray-400 hover:text-blue-500 transition-colors group relative flex items-center gap-1 ml-1"
+                                      title="Copy OKF"
+                                    >
+                                      <FileCheck className="w-3.5 h-3.5" /> <span className="text-[10px] font-medium hidden group-hover:inline">OKF</span>
+                                    </button>
+                                  </div>
 
-                                {currentFormat === "human" ? (
-                                  <div className="space-y-3">
-                                    <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-                                      <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block mb-1">
-                                        Detailed Vision
-                                      </span>
-                                      <p className="text-sm text-gray-800 leading-relaxed">
-                                        {msg.finalIntent.standardizedIntent}
-                                      </p>
-                                    </div>
-                                    <div className="flex gap-4">
-                                      <div>
-                                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">
-                                          Status
-                                        </span>
-                                        <span
-                                          className={cn(
-                                            "px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 inline-block",
-                                            INTENT_STATUS_CONFIG[
-                                              msg.finalIntent
-                                                .status as keyof typeof INTENT_STATUS_CONFIG
-                                            ]?.bgColor,
-                                            INTENT_STATUS_CONFIG[
-                                              msg.finalIntent
-                                                .status as keyof typeof INTENT_STATUS_CONFIG
-                                            ]?.color,
-                                          )}
-                                        >
-                                          {msg.finalIntent.status}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">
-                                          ID
-                                        </span>
-                                        <span className="text-xs font-mono font-bold text-gray-700 mt-1 inline-block">
-                                          {msg.finalIntent.intentId}
-                                        </span>
-                                      </div>
-                                    </div>
+                                  <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block mb-1">
+                                      Detailed Vision
+                                    </span>
+                                    <p className="text-sm text-gray-800 leading-relaxed">
+                                      {msg.finalIntent.standardizedIntent}
+                                    </p>
                                   </div>
-                                ) : (
-                                  <div className="relative bg-gray-900 text-gray-100 rounded-lg p-3 font-mono text-xs overflow-x-auto shadow-inner">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        navigator.clipboard.writeText(
-                                          formattedText,
-                                        )
-                                      }
-                                      className="absolute right-2 top-2 text-[10px] bg-gray-800 text-gray-300 hover:text-white px-2 py-1 rounded border border-gray-700 transition-colors"
-                                    >
-                                      Copy
-                                    </button>
-                                    <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap">
-                                      {formattedText}
-                                    </pre>
-                                  </div>
-                                )}
+                                </div>
 
                                 <div className="flex flex-wrap gap-2 pt-4 mt-2">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setInput(
-                                        `Explain the approval reasoning for intent ${msg.finalIntent.intentId}.`,
-                                      );
-                                      inputRef.current?.focus();
-                                    }}
-                                    className="text-[11px] bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-sm"
+                                    onClick={() => router.push(`/intent/${msg.finalIntent.id || msg.finalIntent.intentId}`)}
+                                    className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors font-medium shadow-sm"
                                   >
-                                    💬 Explain Decision
+                                    <Save className="w-3.5 h-3.5" /> Save Intent
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setInput(
-                                        `Generate execution code for ${msg.finalIntent.intentId}.`,
-                                      );
-                                      inputRef.current?.focus();
-                                    }}
-                                    className="text-[11px] bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-sm"
+                                    onClick={() => inputRef.current?.focus()}
+                                    className="flex items-center gap-1.5 text-xs bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2 rounded-full transition-colors font-medium shadow-sm"
                                   >
-                                    ⚙️ Generate Code
+                                    Clarify Further
                                   </button>
                                 </div>
                               </div>
