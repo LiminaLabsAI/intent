@@ -272,6 +272,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             data: { status: 'IN_PROGRESS', currentStage: 2 },
           });
 
+          let pipelinePaused = false;
           for (let stage = 2; stage <= 6; stage++) {
             sendEvent({
               type: 'stage_start',
@@ -390,6 +391,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                     conversationalReply: result?.conversationalReply,
                     similarIntents: previousResults?.stage3?.similarIntents ?? [],
                   });
+                  pipelinePaused = true;
                   break;
                 }
               } else if (stage === 6) {
@@ -432,6 +434,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
                       context: previousResults,
                     },
                   });
+                }
+
+                if (updateData.decisionOutcome === 'NEEDS_CLARIFICATION') {
+                  sendEvent({
+                    type: 'needs_clarification',
+                    stage: 6,
+                    stageName: STAGE_NAMES[6],
+                    questions: [],
+                    conversationalReply: result?.conversationalReply,
+                    similarIntents: previousResults?.stage3?.similarIntents ?? [],
+                  });
+                  pipelinePaused = true;
+                  break;
                 }
               }
 
@@ -478,11 +493,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             include: { requester: { select: { name: true, email: true } } },
           });
 
-          sendEvent({
-            type: 'pipeline_complete',
-            data: finalIntent,
-            reply: previousResults?.stage6?.conversationalReply || previousResults?.stage5?.conversationalReply || "Your intent has been fully analyzed and processed.",
-          });
+          if (!pipelinePaused) {
+            sendEvent({
+              type: 'pipeline_complete',
+              data: finalIntent,
+              reply: previousResults?.stage6?.conversationalReply || previousResults?.stage5?.conversationalReply || "Your intent has been fully analyzed and processed.",
+            });
+          }
         } catch (error: any) {
           sendEvent({
             type: 'error',

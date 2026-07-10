@@ -709,14 +709,19 @@ export function ChatInterface() {
                                     </button>
                                   </div>
 
-                                  <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-                                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block mb-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/intent/${msg.finalIntent.id || msg.finalIntent.intentId}`)}
+                                    className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 w-full text-left hover:bg-blue-100/50 hover:border-blue-200 transition-all cursor-pointer group"
+                                  >
+                                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider block mb-1 flex items-center justify-between">
                                       Detailed Vision
+                                      <ArrowRight className="w-3 h-3 text-blue-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                                     </span>
                                     <p className="text-sm text-gray-800 leading-relaxed">
                                       {msg.finalIntent.standardizedIntent}
                                     </p>
-                                  </div>
+                                  </button>
                                 </div>
 
 
