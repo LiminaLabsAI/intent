@@ -1,35 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Prompts & Configuration
-const GUARDRAIL_PROMPT = `
-You are an Enterprise Context Guardrail.
-Evaluate the user intent and decide if it falls strictly within the company context (e.g., business reporting, engineering tasks, internal processes). 
-If it is outside context (e.g., personal advice, illegal acts, buying groceries), respond with REJECT.
-Otherwise, respond with PASS.
-`;
+import { openai } from "@ai-sdk/openai";
+import { streamText, generateObject } from "ai";
+import { z } from "zod";
+import prisma from "@/lib/prisma";
+import { STAGE_SYSTEM_PROMPTS, KG_EXTRACTION_PROMPT } from "@/lib/llm/prompts";
 
 const PII_SCRUB_REGEX = /\b(?:\d{3}-\d{2}-\d{4}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
 
-const STAGE_SYSTEM_PROMPTS = {
-  HIGH_LEVEL: "You are Stage 1. Ask one clarifying question to understand the high-level goal of the user's intent.",
-  DETAILS: "You are Stage 2. Ask for specific details, metrics, or formats required for the intent.",
-  DEEP_DIVE: "You are Stage 3. Discuss edge cases, dependencies, and recurring needs.",
-};
-
-const KG_EXTRACTION_PROMPT = `
-Extract Knowledge Graph nodes from this intent.
-Return a JSON array of nodes: [{ label: "name", type: "Topic" | "Context" }]
-`;
-
 export async function POST(req: NextRequest) {
   try {
-    const { messages, stage } = await req.json();
+    const { messages, stage, intentId } = await req.json();
     const lastMessage = messages[messages.length - 1]?.content || "";
 
     // 1. PII Scrubbing
     const scrubbedMessage = lastMessage.replace(PII_SCRUB_REGEX, "[REDACTED_PII]");
 
-    // 2. Enterprise Guardrail Check (Simulated)
+    // 2. Enterprise Guardrail Check
     const isRejected = scrubbedMessage.toLowerCase().includes("grocery") || scrubbedMessage.toLowerCase().includes("personal");
     if (isRejected) {
       return NextResponse.json({ 
@@ -38,34 +24,86 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // 3. Vector Similarity Search (Stub for pgvector)
-    // await prisma.$queryRaw`SELECT id, rawInput FROM "Intent" ORDER BY embedding <-> $1 LIMIT 1`
+    const systemPrompt = STAGE_SYSTEM_PROMPTS[stage as keyof typeof STAGE_SYSTEM_PROMPTS] || STAGE_SYSTEM_PROMPTS.HIGH_LEVEL;
 
-    // 4. SSE Stream Setup for LLM Response
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      system: systemPrompt,
+      messages: messages.map((m: any) => ({
+         role: m.role,
+         content: m.content.replace(PII_SCRUB_REGEX, "[REDACTED_PII]")
+      }))
+    });
+
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        
-        // Determine correct prompt based on stage
-        const prompt = STAGE_SYSTEM_PROMPTS[stage as keyof typeof STAGE_SYSTEM_PROMPTS] || STAGE_SYSTEM_PROMPTS.HIGH_LEVEL;
-        
-        // Simulated streaming response from LLM
-        const textToStream = `[Simulated ${stage} response] Based on your request, I need to know a bit more. Could you clarify?`;
-        const words = textToStream.split(" ");
-        
-        for (const word of words) {
-          await new Promise((resolve) => setTimeout(resolve, 100)); // Simulate latency
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: word + " " })}\n\n`));
-        }
+        try {
+          let fullText = "";
+          for await (const chunk of result.textStream) {
+            fullText += chunk;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+          }
+          
+          // Background extraction after stream completes
+          if (stage === "DEEP_DIVE") {
+            try {
+              const extraction = await generateObject({
+                 model: openai('gpt-4o-mini'),
+                 system: KG_EXTRACTION_PROMPT,
+                 messages: [{ role: 'user', content: fullText }],
+                 schema: z.object({
+                   nodes: z.array(z.object({
+                     label: z.string(),
+                     type: z.enum(["Topic", "Context"])
+                   }))
+                 })
+              });
 
-        // 5. If it's the final stage, run KG Extraction (Simulated)
-        if (stage === "DEEP_DIVE") {
-           // Simulate calling KG_EXTRACTION_PROMPT
-           // await prisma.topic.create(...)
+              let currentIntentId = intentId;
+              if (!currentIntentId) {
+                 const user = await prisma.user.findFirst();
+                 if (user) {
+                   const newIntent = await prisma.intent.create({
+                      data: { rawInput: scrubbedMessage, requesterId: user.id }
+                   });
+                   currentIntentId = newIntent.id;
+                 }
+              }
+
+              if (currentIntentId) {
+                for (const node of extraction.object.nodes) {
+                   if (node.type === "Topic") {
+                      const topic = await prisma.topic.upsert({
+                         where: { name: node.label },
+                         update: {},
+                         create: { name: node.label }
+                      });
+                      await prisma.topicToIntent.create({
+                         data: { topicId: topic.id, intentId: currentIntentId }
+                      }).catch(() => {}); // ignore duplicates
+                   } else {
+                      const ctx = await prisma.contextNode.upsert({
+                         where: { name: node.label },
+                         update: {},
+                         create: { name: node.label, type: "BUSINESS_PROCESS" }
+                      });
+                      await prisma.contextToIntent.create({
+                         data: { contextId: ctx.id, intentId: currentIntentId }
+                      }).catch(() => {}); // ignore duplicates
+                   }
+                }
+              }
+            } catch (err) {
+               console.error("KG Extraction failed", err);
+            }
+          }
+
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (e) {
+          controller.error(e);
         }
-        
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
       }
     });
 
