@@ -5,9 +5,9 @@
   - [x] Update `app/api/refine/route.ts` with AI SDK `streamText`.
   - [x] Implement `generateObject` extraction logic.
   - [x] Store extracted nodes in Prisma DB.
-- [ ] **Group 2: Knowledge Graph UI (Frontend)**
-  - [ ] Create `app/api/graph/route.ts`.
-  - [ ] Replace placeholder with `ForceGraph2D` in `KnowledgeGraph.tsx`.
-- [ ] **Group 3: Downstream Webhooks & Export**
-  - [ ] Handle export logic in `ExportOptions.tsx`.
-  - [ ] Create `app/api/export/route.ts`.
+- [x] **Group 2: Knowledge Graph UI (Frontend)**
+  - [x] Create `app/api/graph/route.ts`.
+  - [x] Replace placeholder with `ForceGraph2D` in `KnowledgeGraph.tsx`.
+- [x] **Group 3: Downstream Webhooks & Export**
+  - [x] Handle export logic in `ExportOptions.tsx`.
+  - [x] Create `app/api/export/route.ts`.
