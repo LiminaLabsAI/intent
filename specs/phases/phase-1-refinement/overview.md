@@ -1,3 +1,9 @@
+---
+type: Phase
+status: in-progress
+tags: [pgvector, knowledge-graph, sse, refinement]
+---
+
 # Phase 1: Intent Refinement Engine
 
 ## Goal

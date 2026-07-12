@@ -4,9 +4,9 @@ type: Status
 
 # Project Status
 
-> **Last Updated**: 2026-07-08
-> **Current Phase**: Phase 0: Bootstrap
-> **Latest Release**: None
+> **Last Updated**: 2026-07-12
+> **Current Phase**: Phase 1: Intent Refinement Engine
+> **Latest Release**: v0.1.0
 > **Health**: On Track
 
 ## Summary
@@ -17,7 +17,8 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 | Phase | Name | Status | Released |
 |-------|------|--------|---------|
-| _(none yet)_ | | | |
+| 0 | Bootstrap | complete | No |
+| 1 | Intent Refinement Engine | complete | v0.1.0 |
 
 ## Ad-hoc / Patch Releases
 
@@ -29,13 +30,12 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
-| 0 | phase-0-bootstrap | complete | 100% |
+| _(none)_ | | | |
 
 ## Upcoming Phases
 
 | Phase | Name | Status | Key Deliverables |
 |-------|------|--------|-----------------|
-| 1 | Validation & Quality Gates | Not Started | Enhance stage 5 Quality Gate rules and test coverage |
 | 2 | SSE Optimizations | Not Started | Re-evaluating stage 2-6 streaming error handling and auto-reconnections |
 
 ## Blockers
@@ -52,7 +52,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 ## Next Actions
 
-1. Run `/start-phase` to begin Phase 0.
+1. Implement Group 0 of Phase 1 (Schema & Vector DB)
 
 ## Key Decisions Made
 

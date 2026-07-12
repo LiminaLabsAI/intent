@@ -2,11 +2,13 @@ generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
     output   = "../node_modules/.prisma/client"
+    previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+    provider   = "postgresql"
+    url        = env("DATABASE_URL")
+    extensions = [vector]
 }
 
 enum UserRole {
@@ -138,6 +140,13 @@ model Intent {
   comments            Comment[]
   auditLogs           AuditLog[]
   
+  // Knowledge Graph Relations
+  topics              TopicToIntent[]
+  contexts            ContextToIntent[]
+  
+  // Vector Embedding
+  embedding           Unsupported("vector(1536)")?
+  
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   
@@ -252,4 +261,42 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Knowledge Graph Nodes and Edges
+
+model Topic {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  intents     TopicToIntent[]
+  createdAt   DateTime @default(now())
+}
+
+model TopicToIntent {
+  topicId   String
+  intentId  String
+  topic     Topic  @relation(fields: [topicId], references: [id])
+  intent    Intent @relation(fields: [intentId], references: [id])
+  relevance Float?
+  
+  @@id([topicId, intentId])
+}
+
+model ContextNode {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   // e.g., "TEAM", "SYSTEM", "BUSINESS_PROCESS"
+  intents     ContextToIntent[]
+  createdAt   DateTime @default(now())
+}
+
+model ContextToIntent {
+  contextId String
+  intentId  String
+  context   ContextNode @relation(fields: [contextId], references: [id])
+  intent    Intent      @relation(fields: [intentId], references: [id])
+  relation  String?     // e.g., "AFFECTS", "BELONGS_TO"
+  
+  @@id([contextId, intentId])
 }
