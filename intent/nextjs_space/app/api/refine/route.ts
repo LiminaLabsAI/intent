@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
-import { streamText, generateObject } from "ai";
+import { streamText, generateObject, embed } from "ai";
 import { z } from "zod";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { STAGE_SYSTEM_PROMPTS, KG_EXTRACTION_PROMPT } from "@/lib/llm/prompts";
 
 const PII_SCRUB_REGEX = /\b(?:\d{3}-\d{2}-\d{4}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
@@ -24,7 +24,31 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    const systemPrompt = STAGE_SYSTEM_PROMPTS[stage as keyof typeof STAGE_SYSTEM_PROMPTS] || STAGE_SYSTEM_PROMPTS.HIGH_LEVEL;
+    let systemPrompt = STAGE_SYSTEM_PROMPTS[stage as keyof typeof STAGE_SYSTEM_PROMPTS] || STAGE_SYSTEM_PROMPTS.HIGH_LEVEL;
+
+    // Semantic RAG Search for historical context
+    if (stage === "HIGH_LEVEL" || stage === "DETAILS") {
+      try {
+        const { embedding } = await embed({
+          model: openai.embedding('text-embedding-3-small'),
+          value: scrubbedMessage
+        });
+        
+        const similar = await prisma.$queryRawUnsafe<any[]>(`
+          SELECT "rawInput" FROM "Intent" 
+          WHERE embedding IS NOT NULL
+          ORDER BY embedding <-> $1::vector 
+          LIMIT 3
+        `, `[${embedding.join(',')}]`);
+        
+        if (similar && similar.length > 0) {
+          const pastIntents = similar.map(s => `- ${s.rawInput}`).join('\n');
+          systemPrompt += `\n\nFor context, here are similar historical intents requested by others in the organization:\n${pastIntents}\nYou can use this to proactively suggest related topics or contexts.`;
+        }
+      } catch (err) {
+        console.error("RAG search error:", err);
+      }
+    }
 
     const result = await streamText({
       model: openai('gpt-4o-mini'),
@@ -72,6 +96,19 @@ export async function POST(req: NextRequest) {
               }
 
               if (currentIntentId) {
+                // Generate and save embedding
+                try {
+                  const { embedding } = await embed({
+                     model: openai.embedding('text-embedding-3-small'),
+                     value: fullText
+                  });
+                  await prisma.$executeRawUnsafe(`
+                    UPDATE "Intent" SET embedding = $1::vector WHERE id = $2
+                  `, `[${embedding.join(',')}]`, currentIntentId);
+                } catch (err) {
+                  console.error("Embedding generation failed", err);
+                }
+
                 for (const node of extraction.object.nodes) {
                    if (node.type === "Topic") {
                       const topic = await prisma.topic.upsert({
