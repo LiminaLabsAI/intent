@@ -122,6 +122,7 @@ export default function RefinementChat() {
       if (reader) {
         let agentText = "";
         let isNewIntent = false;
+        let newIntentId = intentId;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -136,8 +137,9 @@ export default function RefinementChat() {
                 const data = JSON.parse(line.slice(6));
                 agentText += data.text;
                 
-                if (data.intentId && data.intentId !== intentId) {
+                if (data.intentId && data.intentId !== newIntentId) {
                   setIntentId(data.intentId);
+                  newIntentId = data.intentId;
                   isNewIntent = true;
                 }
 
@@ -157,8 +159,8 @@ export default function RefinementChat() {
           prev.map(msg => msg.id === agentMessageId ? { ...msg, isStreaming: false } : msg)
         );
 
-        if (isNewIntent) {
-          // Force a router refresh so GlobalSidebar refetches the intent history
+        if (isNewIntent && newIntentId) {
+          router.replace(`/refine?id=${newIntentId}`);
           router.refresh();
         }
       }

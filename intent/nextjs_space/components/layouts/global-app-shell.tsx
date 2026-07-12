@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { AppShell } from './app-shell'
 import { useSession, signOut } from 'next-auth/react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { MessageSquare, Database, Settings, LogOut, ShieldAlert, Plus, MoreVertical } from 'lucide-react'
 import { FlowLogo } from '@/components/flow-logo'
@@ -11,6 +11,7 @@ import { FlowLogo } from '@/components/flow-logo'
 export function GlobalAppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   
   const [pastIntents, setPastIntents] = useState<{id: string, title: string}[]>([])
@@ -18,14 +19,14 @@ export function GlobalAppShell({ children }: { children: React.ReactNode }) {
   
   useEffect(() => {
     if (status === 'authenticated') {
-      fetch('/api/intents/history')
+      fetch(`/api/intents/history?t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) setPastIntents(data)
         })
         .catch(console.error)
     }
-  }, [status, pathname])
+  }, [status, pathname, searchParams])
   
   if (status === 'loading') {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50">Loading Flow...</div>

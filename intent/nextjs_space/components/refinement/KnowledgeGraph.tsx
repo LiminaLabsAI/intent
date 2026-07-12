@@ -23,7 +23,7 @@ export default function KnowledgeGraph() {
   }, []);
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm overflow-hidden h-[400px] flex flex-col">
+    <div className="bg-white border rounded-xl shadow-sm overflow-hidden h-full flex flex-col">
       <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Network className="w-5 h-5 text-gray-600" />
