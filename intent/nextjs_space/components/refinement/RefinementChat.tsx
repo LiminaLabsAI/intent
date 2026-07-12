@@ -32,18 +32,68 @@ export default function RefinementChat() {
     setInput("");
     setIsTyping(true);
 
-    // TODO: Wire to actual SSE backend endpoint in Group 3
-    // Simulated delay for UI building purposes
-    setTimeout(() => {
-      const agentMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "agent",
-        content: "This is a simulated streaming response. In Group 3, this will be wired to the SSE endpoint.",
-        isStreaming: false,
-      };
-      setMessages((prev) => [...prev, agentMessage]);
+    // 1. Send the message to the API route
+    try {
+      const response = await fetch("/api/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [...messages, userMessage], stage: "HIGH_LEVEL" }),
+      });
+
+      if (!response.ok) {
+        // Guardrail rejection or error
+        const errorData = await response.json();
+        setMessages((prev) => [
+          ...prev, 
+          { id: Date.now().toString(), role: "agent", content: `[GUARDRAIL BLOCKED] ${errorData.reason || "Request denied."}` }
+        ]);
+        setIsTyping(false);
+        return;
+      }
+
+      // 2. Read the SSE stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      const agentMessageId = (Date.now() + 1).toString();
+      setMessages((prev) => [...prev, { id: agentMessageId, role: "agent", content: "", isStreaming: true }]);
       setIsTyping(false);
-    }, 1000);
+
+      if (reader) {
+        let agentText = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          
+          for (const line of lines) {
+            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+              try {
+                const data = JSON.parse(line.slice(6));
+                agentText += data.text;
+                
+                // Update the specific agent message
+                setMessages((prev) => 
+                  prev.map(msg => msg.id === agentMessageId ? { ...msg, content: agentText } : msg)
+                );
+              } catch (e) {
+                console.error("Error parsing SSE JSON", e);
+              }
+            }
+          }
+        }
+        
+        // Finalize streaming state
+        setMessages((prev) => 
+          prev.map(msg => msg.id === agentMessageId ? { ...msg, isStreaming: false } : msg)
+        );
+      }
+    } catch (err) {
+      console.error("Chat error:", err);
+      setIsTyping(false);
+    }
   };
 
   return (

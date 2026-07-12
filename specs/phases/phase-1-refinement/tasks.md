@@ -15,8 +15,8 @@
   - [x] Implement `pgvector` similarity search API.
   - [x] Implement the 3-stage state machine (High Level -> Details -> Deep Dive).
   - [x] Implement Knowledge Graph node/edge extraction LLM step.
-- [ ] **Group 3: Integration & Testing**
-  - [ ] Wire frontend chat component to backend SSE endpoints.
-  - [ ] Wire Knowledge Graph UI to database queries.
-  - [ ] Write tests for PII scrubbing.
-  - [ ] Write tests for Enterprise Guardrails.
+- [x] **Group 3: Integration & Testing**
+  - [x] Wire frontend chat component to backend SSE endpoints.
+  - [x] Wire Knowledge Graph UI to database queries.
+  - [x] Write tests for PII scrubbing.
+  - [x] Write tests for Enterprise Guardrails.
