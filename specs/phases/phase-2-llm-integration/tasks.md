@@ -1,6 +1,6 @@
-- [ ] **Group 0: Architecture & Tooling**
-  - [ ] Install dependencies (`ai`, `@ai-sdk/openai`, `react-force-graph-2d`).
-  - [ ] Add `lib/llm/prompts.ts` for prompt chain.
+- [x] **Group 0: Architecture & Tooling**
+  - [x] Install dependencies (`ai`, `@ai-sdk/openai`, `react-force-graph-2d`).
+  - [x] Add `lib/llm/prompts.ts` for prompt chain.
 - [ ] **Group 1: The Refinement Engine (Backend)**
   - [ ] Update `app/api/refine/route.ts` with AI SDK `streamText`.
   - [ ] Implement `generateObject` extraction logic.
