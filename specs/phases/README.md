@@ -7,7 +7,7 @@ type: Guide
 | Phase | Name | Status | Directory |
 |-------|------|--------|-----------|
 | 0 | Bootstrap | Complete | [phase-0-bootstrap](file:///Users/sarang/hustle/intent/specs/phases/phase-0-bootstrap/) |
-| 1 | Intent Refinement Engine | In Progress | [phase-1-refinement](file:///Users/sarang/hustle/intent/specs/phases/phase-1-refinement/) |
+| 1 | Intent Refinement Engine | Complete | [phase-1-refinement](file:///Users/sarang/hustle/intent/specs/phases/phase-1-refinement/) |
 
 ## Phase Structure
 
