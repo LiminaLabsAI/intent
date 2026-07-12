@@ -70,24 +70,46 @@ export default function RefinementChat() {
       
       if (isMd || isOkf) {
          const format = isOkf ? 'okf' : 'md';
-         const textContent = [...messages, userMessage].map(m => `### ${m.role.toUpperCase()}\n${m.content}`).join('\n\n');
          
-         const blob = new Blob([textContent], { type: 'text/plain' });
-         const url = URL.createObjectURL(blob);
-         const a = document.createElement('a');
-         a.href = url;
-         a.download = `intent-export.${format}`;
-         a.click();
-         URL.revokeObjectURL(url);
-         
-         setTimeout(() => {
-           setMessages(prev => [...prev, { 
-             id: (Date.now() + 1).toString(), 
-             role: "agent", 
-             content: `I have automatically downloaded the ${format.toUpperCase()} file for you. Let me know if you need anything else!` 
-           }]);
+         try {
+           const evalResponse = await fetch("/api/evaluate", {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ messages: [...messages, userMessage] })
+           });
+           
+           if (!evalResponse.ok) throw new Error("Evaluation request failed");
+           
+           const evalData = await evalResponse.json();
+           
+           if (evalData.score >= 80) {
+             const blob = new Blob([evalData.formattedExport], { type: 'text/plain' });
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement('a');
+             a.href = url;
+             a.download = `intent-export.${format}`;
+             a.click();
+             URL.revokeObjectURL(url);
+             
+             setMessages(prev => [...prev, { 
+               id: (Date.now() + 1).toString(), 
+               role: "agent", 
+               content: `✅ Quality Gate Passed (Score: ${evalData.score}/100).\nI have automatically downloaded the ${format.toUpperCase()} file for you. Let me know if you need anything else!` 
+             }]);
+           } else {
+             const missingPoints = evalData.missingDetails.map((d: string) => `- ${d}`).join('\n');
+             setMessages(prev => [...prev, { 
+               id: (Date.now() + 1).toString(), 
+               role: "agent", 
+               content: `❌ **Quality Gate Failed (Score: ${evalData.score}/100)**\n\nYour intent is not yet ready for execution. Please provide the following missing details:\n\n${missingPoints}\n\n**Reasoning:** ${evalData.reasoning}` 
+             }]);
+           }
+         } catch (err) {
+           console.error(err);
+           setMessages(prev => [...prev, { id: Date.now().toString(), role: "agent", content: "Error evaluating intent." }]);
+         } finally {
            setIsTyping(false);
-         }, 500);
+         }
          return;
       }
     }

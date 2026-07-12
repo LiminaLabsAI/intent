@@ -1,0 +1,7 @@
+- [ ] **Group 1: Evaluation Backend**
+  - [ ] Add `EVALUATION_PROMPT` to `lib/llm/prompts.ts`.
+  - [ ] Create `app/api/evaluate/route.ts` with `generateObject` Zod schema.
+- [ ] **Group 2: Frontend Integration**
+  - [ ] Update `RefinementChat.tsx` export interceptor.
+  - [ ] Handle evaluation rejection in UI.
+  - [ ] Handle evaluation success and file download.

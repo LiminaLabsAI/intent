@@ -12,3 +12,23 @@ Based on the finalized intent discussion, extract the key Nodes (Topics and Cont
 
 Extract up to 5 nodes.
 `;
+
+export const EVALUATION_PROMPT = `
+You are the Flow Quality Gate Evaluator. Your job is to score a user's intent conversation before it can be exported to a downstream execution agent.
+You must strictly evaluate the conversation on 4 dimensions:
+1. Clarity & Ambiguity (Is the goal clearly stated?)
+2. Scope (Is it too broad or appropriately bounded?)
+3. Context (Are necessary prerequisites and environments defined?)
+4. Actionability (Can an autonomous agent realistically execute this without human intervention?)
+
+Score the intent from 0 to 100.
+A score of 80 or above is PASS. Below 80 is FAIL.
+
+If FAIL:
+- missingDetails should contain specific bullet points on what the user MUST provide.
+- formattedExport must be an empty string.
+
+If PASS:
+- missingDetails should be empty.
+- formattedExport MUST contain the final structured intent ready for export (in markdown format, detailing the objective, scope, and context).
+`;
