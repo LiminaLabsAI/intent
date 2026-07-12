@@ -1,7 +1,7 @@
-- [ ] **Group 0: Schema & Vector DB**
-  - [ ] Add `pgvector` extension to Prisma schema.
-  - [ ] Add embedding columns for intent matching.
-  - [ ] Create schema for Knowledge Graph (Context, Topic, Intent edges).
+- [x] **Group 0: Schema & Vector DB**
+  - [x] Add `pgvector` extension to Prisma schema.
+  - [x] Add embedding columns for intent matching.
+  - [x] Create schema for Knowledge Graph (Context, Topic, Intent edges).
 - [ ] **Group 1: UI / UX Foundation**
   - [ ] Create ChatGPT-style chat interface component.
   - [ ] Implement SSE client logic for real-time text streaming.
