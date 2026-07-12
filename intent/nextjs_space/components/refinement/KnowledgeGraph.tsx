@@ -8,21 +8,32 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false 
 
 export default function KnowledgeGraph() {
   const [data, setData] = useState({ nodes: [], links: [] });
+  const [isGlobal, setIsGlobal] = useState(false);
 
   useEffect(() => {
     fetch("/api/graph")
       .then(r => r.json())
       .then(d => {
-        if (d.nodes) setData(d);
+        if (d.nodes) {
+          setData(d);
+          setIsGlobal(d.isGlobal || false);
+        }
       })
       .catch(console.error);
   }, []);
 
   return (
     <div className="bg-white border rounded-xl shadow-sm overflow-hidden h-[400px] flex flex-col">
-      <div className="p-4 border-b bg-gray-50 flex items-center gap-2">
-        <Network className="w-5 h-5 text-gray-600" />
-        <h3 className="font-semibold text-gray-800">Organizational Knowledge Graph</h3>
+      <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Network className="w-5 h-5 text-gray-600" />
+          <h3 className="font-semibold text-gray-800">
+            {isGlobal ? "Global Organization Graph" : "Your Local Neighborhood"}
+          </h3>
+        </div>
+        {!isGlobal && (
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">Personalized</span>
+        )}
       </div>
       
       <div className="flex-1 overflow-hidden relative">
@@ -30,10 +41,9 @@ export default function KnowledgeGraph() {
           graphData={data}
           nodeAutoColorBy="group"
           nodeRelSize={8}
+          nodeLabel="name"
           linkDirectionalArrowLength={3.5}
           linkDirectionalArrowRelPos={1}
-          width={800}
-          height={400}
         />
       </div>
       

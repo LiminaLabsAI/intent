@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Send, AlertTriangle, CheckCircle, Database } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Message = {
   id: string;
@@ -14,7 +15,36 @@ export default function RefinementChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const searchParams = useSearchParams();
+  const idFromUrl = searchParams?.get('id');
+  const [intentId, setIntentId] = useState<string | null>(idFromUrl || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (idFromUrl) {
+      setIntentId(idFromUrl);
+      fetch(`/api/intents/${idFromUrl}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.processingLog && data.processingLog.messages) {
+            setMessages(data.processingLog.messages.map((m: any, idx: number) => ({
+              id: idx.toString(),
+              role: m.role === 'assistant' ? 'agent' : m.role,
+              content: m.content
+            })));
+          } else if (data && data.rawInput) {
+            setMessages([{ id: "0", role: "user", content: data.rawInput }]);
+          }
+        })
+        .catch(console.error);
+    } else {
+      // User clicked New Intent and URL cleared the ID
+      setIntentId(null);
+      setMessages([]);
+      setInput("");
+    }
+  }, [idFromUrl]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,12 +62,42 @@ export default function RefinementChat() {
     setInput("");
     setIsTyping(true);
 
+    // 0. Intercept conversational download requests
+    const lowerInput = input.toLowerCase();
+    if (lowerInput.includes("download") || lowerInput.includes("export")) {
+      const isMd = lowerInput.includes("md") || lowerInput.includes("markdown");
+      const isOkf = lowerInput.includes("okf");
+      
+      if (isMd || isOkf) {
+         const format = isOkf ? 'okf' : 'md';
+         const textContent = [...messages, userMessage].map(m => `### ${m.role.toUpperCase()}\n${m.content}`).join('\n\n');
+         
+         const blob = new Blob([textContent], { type: 'text/plain' });
+         const url = URL.createObjectURL(blob);
+         const a = document.createElement('a');
+         a.href = url;
+         a.download = `intent-export.${format}`;
+         a.click();
+         URL.revokeObjectURL(url);
+         
+         setTimeout(() => {
+           setMessages(prev => [...prev, { 
+             id: (Date.now() + 1).toString(), 
+             role: "agent", 
+             content: `I have automatically downloaded the ${format.toUpperCase()} file for you. Let me know if you need anything else!` 
+           }]);
+           setIsTyping(false);
+         }, 500);
+         return;
+      }
+    }
+
     // 1. Send the message to the API route
     try {
       const response = await fetch("/api/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMessage], stage: "HIGH_LEVEL" }),
+        body: JSON.stringify({ messages: [...messages, userMessage], stage: "HIGH_LEVEL", intentId }),
       });
 
       if (!response.ok) {
@@ -61,6 +121,8 @@ export default function RefinementChat() {
 
       if (reader) {
         let agentText = "";
+        let isNewIntent = false;
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -74,6 +136,11 @@ export default function RefinementChat() {
                 const data = JSON.parse(line.slice(6));
                 agentText += data.text;
                 
+                if (data.intentId && data.intentId !== intentId) {
+                  setIntentId(data.intentId);
+                  isNewIntent = true;
+                }
+
                 // Update the specific agent message
                 setMessages((prev) => 
                   prev.map(msg => msg.id === agentMessageId ? { ...msg, content: agentText } : msg)
@@ -89,6 +156,11 @@ export default function RefinementChat() {
         setMessages((prev) => 
           prev.map(msg => msg.id === agentMessageId ? { ...msg, isStreaming: false } : msg)
         );
+
+        if (isNewIntent) {
+          // Force a router refresh so GlobalSidebar refetches the intent history
+          router.refresh();
+        }
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -97,20 +169,21 @@ export default function RefinementChat() {
   };
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-xl overflow-hidden bg-white shadow-sm">
-      {/* Header */}
-      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <div>
-          <h3 className="font-semibold text-gray-800">Intent Refinement</h3>
-          <p className="text-xs text-gray-500">Stage 1: High Level</p>
-        </div>
-        <div className="flex gap-2">
-          {/* Action buttons could go here */}
-        </div>
+    <div className="flex flex-col h-full overflow-hidden bg-white shadow-sm border border-gray-200 rounded-xl">
+      {/* Header Area */}
+      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+         <div>
+            <h2 className="text-lg font-semibold text-gray-800">
+              {intentId ? "Intent Refinement" : "New Intent"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {intentId ? "Continue refining your business objective" : "Describe your objective to begin"}
+            </p>
+         </div>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
             <Database className="w-12 h-12 opacity-20" />
@@ -139,7 +212,7 @@ export default function RefinementChat() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t">
+      <div className="p-4 bg-white">
         <div className="relative flex items-center">
           <textarea
             className="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"

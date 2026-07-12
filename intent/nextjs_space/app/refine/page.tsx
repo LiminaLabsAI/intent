@@ -1,23 +1,35 @@
 import React from "react";
 import RefinementChat from "@/components/refinement/RefinementChat";
-import KnowledgeGraph from "@/components/refinement/KnowledgeGraph";
-import ExportOptions from "@/components/refinement/ExportOptions";
+import { MessageSquare, Plus, Settings } from "lucide-react";
+import Link from "next/link";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
+import { prisma } from "@/lib/prisma";
 
-export default function RefinePage() {
+export default async function RefinePage() {
+  const session = await getServerSession(authOptions);
+  
+  let pastIntents: { id: string; title: string }[] = [];
+
+  if (session?.user?.id) {
+    const rawIntents = await prisma.intent.findMany({
+      where: { requesterId: (session.user as any).id },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    
+    pastIntents = rawIntents.map(i => ({
+      id: i.id,
+      title: i.expectedOutcome || i.rawInput || "Untitled Intent"
+    }));
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="container mx-auto p-6 max-w-7xl pt-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Intent Refinement Studio</h1>
-        <p className="text-gray-600 mb-8">Clarify your intent, discover related organizational knowledge, and export structured plans.</p>
-      
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="flex flex-col">
-            <RefinementChat />
-          </div>
-          <div className="flex flex-col space-y-8">
-            <KnowledgeGraph />
-            <ExportOptions />
-          </div>
+    <div className="flex h-[calc(100vh-theme(spacing.14))] bg-white -m-4 sm:-m-6 lg:-m-8">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        <div className="flex-1 w-full p-6 flex flex-col h-full">
+           <RefinementChat />
         </div>
       </div>
     </div>

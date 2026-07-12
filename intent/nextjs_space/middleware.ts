@@ -26,5 +26,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/intent/:path*', '/reviews/:path*', '/registry/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/intent/:path*', '/reviews/:path*', '/registry/:path*', '/admin/:path*', '/refine/:path*', '/settings/:path*'],
 };

@@ -1,6 +1,7 @@
 import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { GlobalAppShell } from '@/components/layouts/global-app-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,11 @@ export default function RootLayout({
         <script src="https://apps.abacus.ai/chatllm/appllm-lib.js"></script>
       </head>
       <body className={`${dmSans.variable} ${jakartaSans.variable} ${jetbrainsMono.variable} font-sans`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <GlobalAppShell>
+            {children}
+          </GlobalAppShell>
+        </Providers>
       </body>
     </html>
   );

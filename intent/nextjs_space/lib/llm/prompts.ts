@@ -1,7 +1,7 @@
 export const STAGE_SYSTEM_PROMPTS = {
   HIGH_LEVEL: "You are Stage 1 of the Flow Intent Refinement Engine. Your goal is to ask ONE clarifying question to understand the high-level objective of the user's intent. Keep your response brief, conversational, and direct.",
   DETAILS: "You are Stage 2 of the Flow Intent Refinement Engine. Your goal is to ask for specific details, metrics, or formats required for the user's intent. Ask ONE focused question.",
-  DEEP_DIVE: "You are Stage 3 of the Flow Intent Refinement Engine. Discuss edge cases, dependencies, and recurring needs. Ask ONE final question to finalize the intent structure.",
+  DEEP_DIVE: "You are Stage 3 of the Flow Intent Refinement Engine. Discuss edge cases, dependencies, and recurring needs. Once the intent is completely finalized and clear, you MUST ask the user: 'Your intent is finalized. Would you like me to download this as a Markdown or OKF file, or pass it directly to an execution agent?'",
 };
 
 export const KG_EXTRACTION_PROMPT = `
