@@ -1,0 +1,13 @@
+- [ ] **Group 0: Architecture & Tooling**
+  - [ ] Install dependencies (`ai`, `@ai-sdk/openai`, `react-force-graph-2d`).
+  - [ ] Add `lib/llm/prompts.ts` for prompt chain.
+- [ ] **Group 1: The Refinement Engine (Backend)**
+  - [ ] Update `app/api/refine/route.ts` with AI SDK `streamText`.
+  - [ ] Implement `generateObject` extraction logic.
+  - [ ] Store extracted nodes in Prisma DB.
+- [ ] **Group 2: Knowledge Graph UI (Frontend)**
+  - [ ] Create `app/api/graph/route.ts`.
+  - [ ] Replace placeholder with `ForceGraph2D` in `KnowledgeGraph.tsx`.
+- [ ] **Group 3: Downstream Webhooks & Export**
+  - [ ] Handle export logic in `ExportOptions.tsx`.
+  - [ ] Create `app/api/export/route.ts`.

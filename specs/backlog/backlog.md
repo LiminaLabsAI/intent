@@ -25,7 +25,7 @@ type: Backlog
 
 | ID | Title | Priority | Status | Phase | Detail |
 |----|-------|----------|--------|-------|--------|
-| _(none)_ | | | | | |
+| BUG-001 | `/refine` UI is broken | P0 | open | Phase 1 | User reported the Refinement UI is broken. Needs diagnosis (styling/hydration/routing error) before proceeding. |
 
 ## Features
 

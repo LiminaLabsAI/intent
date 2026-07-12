@@ -8,6 +8,7 @@ type: Guide
 |-------|------|--------|-----------|
 | 0 | Bootstrap | Complete | [phase-0-bootstrap](file:///Users/sarang/hustle/intent/specs/phases/phase-0-bootstrap/) |
 | 1 | Intent Refinement Engine | Complete | [phase-1-refinement](file:///Users/sarang/hustle/intent/specs/phases/phase-1-refinement/) |
+| 2 | LLM Integration | In Progress | [phase-2-llm-integration](file:///Users/sarang/hustle/intent/specs/phases/phase-2-llm-integration/) |
 
 ## Phase Structure
 
