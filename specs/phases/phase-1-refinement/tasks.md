@@ -2,13 +2,13 @@
   - [x] Add `pgvector` extension to Prisma schema.
   - [x] Add embedding columns for intent matching.
   - [x] Create schema for Knowledge Graph (Context, Topic, Intent edges).
-- [ ] **Group 1: UI / UX Foundation**
-  - [ ] Create ChatGPT-style chat interface component.
-  - [ ] Implement SSE client logic for real-time text streaming.
-  - [ ] Add Knowledge Graph visualization dashboard component.
-  - [ ] Build UI for "Previous Solution Found" intervention.
-  - [ ] Build "Flag for Human Review" escalation UI.
-  - [ ] Build Export options component (Markdown, OKF, Webhook).
+- [x] **Group 1: UI / UX Foundation**
+  - [x] Create ChatGPT-style chat interface component.
+  - [x] Implement SSE client logic for real-time text streaming.
+  - [x] Add Knowledge Graph visualization dashboard component.
+  - [x] Build UI for "Previous Solution Found" intervention.
+  - [x] Build "Flag for Human Review" escalation UI.
+  - [x] Build Export options component (Markdown, OKF, Webhook).
 - [ ] **Group 2: The Refinement Engine & AI**
   - [ ] Implement PII scrubbing middleware/pipeline.
   - [ ] Write Enterprise Guardrail system prompt and logic.

@@ -7,3 +7,8 @@ Detail: Redefined Phase 1 to build a frontend-focused Intent Refinement Engine. 
 Topics: schema, pgvector, knowledge-graph
 Affects-phases: phase-1-refinement
 Detail: Added pgvector extension and `embedding` column to Intent model. Added `Topic`, `ContextNode`, and relationship tables for Knowledge Graph visualization.
+
+### [NOTE] 2026-07-12 — Built Refinement UI Foundation
+Topics: ui, chat, knowledge-graph
+Affects-phases: phase-1-refinement
+Detail: Built the RefinementChat, KnowledgeGraph dashboard, ExportOptions, FlagReview, and PreviousSolutionAlert components. Wired them together in the `/refine` page route.
