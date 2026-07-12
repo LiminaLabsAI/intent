@@ -12,3 +12,8 @@ Detail: Added pgvector extension and `embedding` column to Intent model. Added `
 Topics: ui, chat, knowledge-graph
 Affects-phases: phase-1-refinement
 Detail: Built the RefinementChat, KnowledgeGraph dashboard, ExportOptions, FlagReview, and PreviousSolutionAlert components. Wired them together in the `/refine` page route.
+
+### [NOTE] 2026-07-12 — Implemented Refinement API Engine
+Topics: ai, sse, guardrails, pgvector, knowledge-graph
+Affects-phases: phase-1-refinement
+Detail: Built the Next.js API route (`/api/refine/route.ts`) which acts as the core Refinement Engine. Implemented the SSE streaming response, PII regex scrubbing, the 3-stage LLM prompt chain configuration, simulated Enterprise Guardrails, and stubs for `pgvector` semantic search and Knowledge Graph node extraction.

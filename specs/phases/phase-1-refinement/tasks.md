@@ -9,12 +9,12 @@
   - [x] Build UI for "Previous Solution Found" intervention.
   - [x] Build "Flag for Human Review" escalation UI.
   - [x] Build Export options component (Markdown, OKF, Webhook).
-- [ ] **Group 2: The Refinement Engine & AI**
-  - [ ] Implement PII scrubbing middleware/pipeline.
-  - [ ] Write Enterprise Guardrail system prompt and logic.
-  - [ ] Implement `pgvector` similarity search API.
-  - [ ] Implement the 3-stage state machine (High Level -> Details -> Deep Dive).
-  - [ ] Implement Knowledge Graph node/edge extraction LLM step.
+- [x] **Group 2: The Refinement Engine & AI**
+  - [x] Implement PII scrubbing middleware/pipeline.
+  - [x] Write Enterprise Guardrail system prompt and logic.
+  - [x] Implement `pgvector` similarity search API.
+  - [x] Implement the 3-stage state machine (High Level -> Details -> Deep Dive).
+  - [x] Implement Knowledge Graph node/edge extraction LLM step.
 - [ ] **Group 3: Integration & Testing**
   - [ ] Wire frontend chat component to backend SSE endpoints.
   - [ ] Wire Knowledge Graph UI to database queries.
