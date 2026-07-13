@@ -7,21 +7,24 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 
 export default async function RefinePage() {
-  const session = await getServerSession(authOptions);
-  
   let pastIntents: { id: string; title: string }[] = [];
 
-  if (session?.user?.id) {
-    const rawIntents = await prisma.intent.findMany({
-      where: { requesterId: (session.user as any).id },
-      orderBy: { createdAt: 'desc' },
-      take: 20
-    });
-    
-    pastIntents = rawIntents.map(i => ({
-      id: i.id,
-      title: i.expectedOutcome || i.rawInput || "Untitled Intent"
-    }));
+  // BUG-001: degrade to an empty state if auth/DB are unavailable instead of 500ing.
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const rawIntents = await prisma.intent.findMany({
+        where: { requesterId: (session.user as any).id },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      pastIntents = rawIntents.map((i) => ({
+        id: i.id,
+        title: i.expectedOutcome || i.rawInput || "Untitled Intent",
+      }));
+    }
+  } catch (e) {
+    console.error('[refine] session/DB unavailable — rendering empty state:', e);
   }
 
   return (
