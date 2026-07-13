@@ -21,7 +21,7 @@ const getChatModel = () => {
   if (process.env.NODE_ENV === 'development') {
     return ollama('qwen2.5:1.5b');
   }
-  return novita("zai-org/GLM-5.2:novita");
+  return novita("deepseek-ai/DeepSeek-V4-Flash:novita");
 };
 
 export async function POST(req: NextRequest) {

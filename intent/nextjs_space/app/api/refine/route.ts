@@ -24,7 +24,7 @@ const getChatModel = () => {
   if (process.env.NODE_ENV === 'development') {
     return ollama('qwen2.5:1.5b');
   }
-  return hf('zai-org/GLM-5.2:novita');
+  return hf('deepseek-ai/DeepSeek-V4-Flash:novita');
 };
 
 const PII_SCRUB_REGEX = /\b(?:\d{3}-\d{2}-\d{4}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
