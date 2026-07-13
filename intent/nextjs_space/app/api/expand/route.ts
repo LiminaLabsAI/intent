@@ -85,7 +85,7 @@ ${JSON.stringify(intentData, null, 2)}
       }
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("[EXPAND] Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

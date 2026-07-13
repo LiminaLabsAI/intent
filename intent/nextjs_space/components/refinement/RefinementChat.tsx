@@ -210,25 +210,16 @@ export default function RefinementChat() {
         const { done, value } = await reader.read();
         if (done) break;
         
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        const chunk = decoder.decode(value, { stream: true });
+        text += chunk;
         
-        for (const line of lines) {
-          if (line.startsWith('0:')) {
-            try {
-              const content = JSON.parse(line.substring(2));
-              text += content;
-              
-              setIntentData((prev: any) => {
-                const currentArtifacts = prev?.artifacts || {};
-                return {
-                  ...prev,
-                  artifacts: { ...currentArtifacts, [type]: text }
-                };
-              });
-            } catch (e) {}
-          }
-        }
+        setIntentData((prev: any) => {
+          const currentArtifacts = prev?.artifacts || {};
+          return {
+            ...prev,
+            artifacts: { ...currentArtifacts, [type]: text }
+          };
+        });
       }
     } catch (err) {
       console.error(err);
