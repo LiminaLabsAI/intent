@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, AlertTriangle, CheckCircle, Database } from "lucide-react";
+import { Send, AlertTriangle, CheckCircle, Database, Activity } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Message = {
@@ -15,6 +15,8 @@ export default function RefinementChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [score, setScore] = useState<number>(0);
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get('id');
   const [intentId, setIntentId] = useState<string | null>(idFromUrl || null);
@@ -53,6 +55,37 @@ export default function RefinementChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Background evaluation hook
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "agent" && !lastMessage.isStreaming) {
+      setIsEvaluating(true);
+      fetch("/api/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.score === 'number') {
+          setScore(data.score);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsEvaluating(false));
+    }
+  }, [messages]);
+
+  const getReadiness = () => {
+    if (score === 0) return { label: "🔴 Vague", color: "text-red-600" };
+    if (score < 50) return { label: "🔴 Needs Context", color: "text-red-500" };
+    if (score < 80) return { label: "🟡 Actionable", color: "text-amber-600" };
+    return { label: "🟢 Ready for Dispatch", color: "text-emerald-600" };
+  };
+
+  const readiness = getReadiness();
+  const computeSaved = `$${((score / 100) * 15).toFixed(2)}`;
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -204,6 +237,20 @@ export default function RefinementChat() {
               {intentId ? "Continue refining your business objective" : "Describe your objective to begin"}
             </p>
          </div>
+         {messages.length > 0 && (
+           <div className="flex items-center gap-6">
+             <div className="text-right">
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1 flex items-center gap-1 justify-end">
+                  Readiness {isEvaluating && <Activity className="w-3 h-3 animate-pulse text-blue-500" />}
+                </div>
+                <div className={`text-sm font-medium ${readiness.color}`}>{readiness.label}</div>
+             </div>
+             <div className="text-right">
+                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Est. Compute Saved</div>
+                <div className="text-sm font-medium text-emerald-600">+{computeSaved}</div>
+             </div>
+           </div>
+         )}
       </div>
 
       {/* Chat Area */}
