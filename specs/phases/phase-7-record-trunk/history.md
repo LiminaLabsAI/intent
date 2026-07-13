@@ -55,3 +55,19 @@ Affects-specs: specs/vision/product-design.md#9
 Detail: The legacy `Intent` wide row and `/api/intents/[id]/process` pipeline are left working and untouched this phase. Convergence onto the one record is deferred.
 
 ---
+
+### [DISCOVERY] 2026-07-14 — BUG-001 root cause found
+Topics: bug, refine-ui, environment
+Affects-phases: phase-7-record-trunk, phase-9
+Affects-specs: none
+Detail: `/refine` (`app/refine/page.tsx`) is a server component that `await`s `prisma.intent.findMany` and `getServerSession(authOptions)` at render time. With no `DATABASE_URL` / NextAuth env configured, it throws → broken page. Not a code logic bug; an environment + hard-render-dependency issue. Full fix in Phase 9 (make render resilient + stand up DB/auth env when the Studio re-points onto the new record).
+
+---
+
+### [ARCH_CHANGE] 2026-07-14 — Toolchain: pure core + Node-native tests, no infra
+Topics: testing, toolchain, determinism-boundary
+Affects-phases: phase-7-record-trunk
+Affects-specs: specs/vision/product-design.md#3.10
+Detail: Environment had no node_modules/DB. Chose to build the rails as pure, DB-agnostic, LLM-agnostic modules (erasable TypeScript) tested with Node's built-in runner (`node --test`, zero deps). Readiness = f(slot states) proven deterministic. Persistence is a swappable adapter (`InMemoryEventStore` now, `PrismaEventStore` DB-gated). The HTTP record-read API is deferred to Phase 9 (needs the running app + DB). `allowImportingTsExtensions` added to tsconfig so `.ts`-extension imports satisfy both Node and the Next typecheck.
+
+---

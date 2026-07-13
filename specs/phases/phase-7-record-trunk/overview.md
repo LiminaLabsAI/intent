@@ -23,18 +23,18 @@ Build the **deterministic system the probabilistic agent will run on** — the e
 ## Deliverables
 | Deliverable | Verification |
 |---|---|
-| Event replay deterministic; version increments per event | `cd nextjs_space && npm test` (replay suite) |
-| Illegal lifecycle transitions rejected | `cd nextjs_space && npm test` (state-machine suite) |
-| Readiness = pure fn of slot states + requiredness (🔴🟡🟢) | `cd nextjs_space && npm test` (aggregation suite) |
-| Spine + Change + Report templates resolve by intent-type | `cd nextjs_space && npm test` (registry suite) |
+| Event replay deterministic; version increments per event | `cd intent/nextjs_space && npm test` (replay suite) |
+| Illegal lifecycle transitions rejected | `cd intent/nextjs_space && npm test` (state-machine suite) |
+| Readiness = pure fn of slot states + requiredness (🔴🟡🟢) | `cd intent/nextjs_space && npm test` (aggregation suite) |
+| Spine + Change + Report templates resolve by intent-type | `cd intent/nextjs_space && npm test` (registry suite) |
 | Record-read API returns slots + states + readiness | smoke script + manual `curl` |
-| Test harness exists (was zero) | `cd nextjs_space && npm test` runs green |
+| Test harness exists (was zero) | `cd intent/nextjs_space && npm test` runs green |
 
-> **Config note:** `config.md` says `test_command: npm test`, but the app is in `nextjs_space/`; this phase uses `cd nextjs_space && npm test`.
+> **Config note:** `config.md` says `test_command: npm test`, but the app is in `intent/nextjs_space/`; this phase uses `cd intent/nextjs_space && npm test`.
 
 ## Acceptance Criteria
 1. A given event sequence deterministically reproduces slot states + version + lifecycle state (replay test green).
 2. Illegal state transitions throw (guard tests green).
 3. Readiness is a pure function of slot states + the requiredness matrix (aggregation tests green across 🔴🟡🟢).
-4. `cd nextjs_space && npm test` runs green — **"zero tests" is dead.**
+4. `cd intent/nextjs_space && npm test` runs green — **"zero tests" is dead.**
 5. Smoke: create an intent → append events → Readiness changes → all persisted immutably (version history intact).

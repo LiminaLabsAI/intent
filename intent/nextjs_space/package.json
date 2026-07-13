@@ -6,6 +6,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --test \"lib/**/*.test.ts\"",
     "postinstall": "prisma generate"
   },
   "prisma": {

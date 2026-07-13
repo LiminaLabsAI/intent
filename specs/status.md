@@ -33,7 +33,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 7 | feat/intent-agent | Implementation | Group 0 (Intent Agent arc 7→9) |
+| 7 | feat/intent-agent | Implementation | Rails complete — 31 tests green, smoke OK; HTTP API → P9 |
 
 ## Upcoming Phases
 

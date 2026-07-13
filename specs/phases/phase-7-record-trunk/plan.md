@@ -4,7 +4,7 @@
 # Execution: Group 0 → (Group 1 + Group 2 parallel) → Group 3 → Group 4
 ```
 
-All work on branch `feat/intent-agent`, in `nextjs_space/`. Verification: `cd nextjs_space && npm test`.
+All work on branch `feat/intent-agent`, in `intent/nextjs_space/`. Verification: `cd intent/nextjs_space && npm test`.
 
 ## Group 0 — Contracts, types, migration
 **Sequential. Blocks everything.** Deps: Prisma, existing `nextjs_space` app.

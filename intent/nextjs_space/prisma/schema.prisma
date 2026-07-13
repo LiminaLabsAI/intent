@@ -300,6 +300,38 @@ model ContextToIntent {
   context   ContextNode @relation(fields: [contextId], references: [id])
   intent    Intent      @relation(fields: [intentId], references: [id])
   relation  String?     // e.g., "AFFECTS", "BELONGS_TO"
-  
+
   @@id([contextId, intentId])
+}
+
+// ── Phase 7: Deterministic Trunk — event-sourced record (additive) ────────────
+// The append-only IntentEvent log is the source of truth; SlotValue is a
+// materialized projection for fast reads. Kept standalone (intentId as a plain
+// string, no FK) so the legacy Intent row + pipeline are entirely untouched.
+
+model IntentEvent {
+  id        String   @id @default(cuid())
+  intentId  String
+  seq       Int      // monotonic ordering within an intent
+  kind      String   // created | classified | slot_added | slot_valued | slot_assessed | transitioned
+  payload   Json     // the event body (matches lib/agent IntentEvent)
+  actor     String   // user | agent id
+  createdAt DateTime @default(now())
+
+  @@unique([intentId, seq])
+  @@index([intentId])
+}
+
+model SlotValue {
+  id        String   @id @default(cuid())
+  intentId  String
+  key       String
+  value     String?
+  state     String   // empty | weak | ambiguous | conflicting | strong
+  reason    String?
+  evidence  Json?
+  updatedAt DateTime @updatedAt
+
+  @@unique([intentId, key])
+  @@index([intentId])
 }
