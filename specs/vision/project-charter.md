@@ -38,3 +38,13 @@ It features a collapsible sidebar (ChatGPT-style), NextAuth credentials provider
 
 ## Success
 Success is verified when 100% of status changes are logged, role boundaries are strictly enforced at the API layer, and the SSE pipeline is robust against connection dropouts.
+
+## Future Vision & Brainstorming
+*Date: 2026-07-13*
+
+During recent brainstorming sessions, the following areas have been identified for future evolution and polish of the Intent Studio experience:
+
+1. **Intent History Grouping**: Refactor the sidebar to intelligently group historical intents by relative dates (e.g., "Today", "Yesterday", "Last 7 Days") to drastically improve navigation for power users.
+2. **Product Requirements Document (PRD) Experience**: Decide whether the AI-generated PRDs should stream directly into the active "Live Document" view alongside the raw intent, or if they warrant a dedicated full-screen modal/tab for distraction-free reading.
+3. **Semantic Search via `pgvector`**: Migrate the database architecture to support `pgvector`. This will allow the system to generate vector embeddings for every intent, unlocking semantic search capabilities. Key use cases include automatically detecting duplicate intents during creation and finding conceptually similar past intents even if keyword matching fails.
+4. **Brand Cohesion**: Standardize UI elements (such as the "New Intent" button) to align with the core brand palette (e.g., deep blue/indigo) rather than default generic success colors.
