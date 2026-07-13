@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         formattedExport: z.string().describe("The formatted markdown export if the score is 80 or above, otherwise empty string"),
         businessObjective: z.string().optional().describe("The extracted high-level business objective if score >= 80"),
         scope: z.string().optional().describe("The extracted scope of the intent if score >= 80"),
-        entities: z.record(z.any()).optional().describe("A key-value mapping of extracted entities if score >= 80"),
+        entities: z.record(z.string(), z.any()).optional().describe("A key-value mapping of extracted entities if score >= 80"),
       }),
     });
 
