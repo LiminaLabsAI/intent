@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Shield, Users, BarChart3, FileText, Clock, AlertTriangle,
-  CheckCircle2, XCircle, TrendingUp, Loader2, UserCog, Code, Cpu
+  CheckCircle2, XCircle, TrendingUp, Loader2, UserCog, Code, Cpu, Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,8 +35,14 @@ export function AdminClient() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
+  // Webhook Settings State
+  const [webhookEndpoint, setWebhookEndpoint] = useState<string>('');
+  const [webhookApiKey, setWebhookApiKey] = useState<string>('');
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [webhookSaved, setWebhookSaved] = useState(false);
+
   useEffect(() => {
-    Promise.all([fetchStats(), fetchUsers(), fetchSettings()]).finally(() => setLoading(false));
+    Promise.all([fetchStats(), fetchUsers(), fetchSettings(), fetchWebhookSettings()]).finally(() => setLoading(false));
   }, []);
 
   const fetchStats = async () => {
@@ -96,6 +102,40 @@ export function AdminClient() {
       console.error('Save settings error:', e);
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  const fetchWebhookSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/webhook');
+      if (res.ok) {
+        const data = await res.json();
+        setWebhookEndpoint(data?.settings?.endpoint ?? '');
+        setWebhookApiKey(data?.settings?.apiKey ?? '');
+      }
+    } catch (e) {
+      console.error('Webhook settings error:', e);
+    }
+  };
+
+  const saveWebhookSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWebhookSaving(true);
+    setWebhookSaved(false);
+    try {
+      const res = await fetch('/api/admin/settings/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: webhookEndpoint, apiKey: webhookApiKey }),
+      });
+      if (res.ok) {
+        setWebhookSaved(true);
+        setTimeout(() => setWebhookSaved(false), 2000);
+      }
+    } catch (e) {
+      console.error('Save webhook error:', e);
+    } finally {
+      setWebhookSaving(false);
     }
   };
 
@@ -403,6 +443,51 @@ export function AdminClient() {
                     <div className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
                       <CheckCircle2 className="w-4 h-4" />
                       Settings Saved successfully
+                    </div>
+                  )}
+                </div>
+              </form>
+
+              <hr className="my-8 border-gray-100" />
+              
+              <div className="flex items-center gap-2 mb-6">
+                <Send className="w-5 h-5 text-blue-500" />
+                <div>
+                  <h2 className="text-gray-900 font-semibold text-base">Execution Agent Webhook</h2>
+                  <p className="text-xs text-gray-400">Configure where dispatched intents should be sent</p>
+                </div>
+              </div>
+
+              <form onSubmit={saveWebhookSettings} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700">Webhook URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://your-execution-agent.com/webhook"
+                    value={webhookEndpoint}
+                    onChange={(e) => setWebhookEndpoint(e.target.value)}
+                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-700">Authorization Token (Optional)</label>
+                  <input
+                    type="password"
+                    placeholder="Bearer token..."
+                    value={webhookApiKey}
+                    onChange={(e) => setWebhookApiKey(e.target.value)}
+                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-3">
+                  <Button type="submit" disabled={webhookSaving} className="bg-blue-600 hover:bg-blue-700 text-white text-sm">
+                    {webhookSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save Webhook
+                  </Button>
+                  {webhookSaved && (
+                    <div className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Saved
                     </div>
                   )}
                 </div>

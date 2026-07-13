@@ -13,11 +13,19 @@ const hf = createOpenAI({
   apiKey: process.env.HF_TOKEN || '',
 });
 
-// Connect to local Ollama for Embeddings
+// Connect to local Ollama for Embeddings and Local Chat
 const ollama = createOpenAI({
   baseURL: 'http://127.0.0.1:11434/v1',
   apiKey: 'ollama', 
 });
+
+// Select model based on environment
+const getChatModel = () => {
+  if (process.env.NODE_ENV === 'development') {
+    return ollama('qwen2.5:1.5b');
+  }
+  return hf('zai-org/GLM-5.2:novita');
+};
 
 const PII_SCRUB_REGEX = /\b(?:\d{3}-\d{2}-\d{4}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\b/gi;
 
@@ -101,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await streamText({
-      model: hf('zai-org/GLM-5.2:novita'),
+      model: getChatModel(),
       system: systemPrompt,
       messages: messages.map((m: any) => ({
          role: m.role === "agent" ? "assistant" : m.role,
@@ -122,7 +130,7 @@ export async function POST(req: NextRequest) {
           if (currentIntentId) {
              try {
                const extractionResult = await generateText({
-                  model: hf('zai-org/GLM-5.2:novita'),
+                  model: getChatModel(),
                   system: KG_EXTRACTION_PROMPT + "\n\nRespond ONLY with a valid JSON array of objects, e.g., [{ \"label\": \"Cloud Migration\", \"type\": \"Topic\" }]",
                   messages: [{ role: 'user', content: fullText }]
                });

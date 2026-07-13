@@ -25,7 +25,7 @@ export default async function RefinePage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.14))] bg-white -m-4 sm:-m-6 lg:-m-8">
+    <div className="flex h-[calc(100vh-theme(spacing.14))] lg:h-screen bg-white -m-4 sm:-m-6 lg:-m-8">
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
         <div className="flex-1 w-full p-6 flex flex-col h-full">

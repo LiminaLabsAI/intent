@@ -37,6 +37,12 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
           take: 50,
         },
+        topics: {
+          include: { topic: true }
+        },
+        contexts: {
+          include: { context: true }
+        }
       },
     });
 

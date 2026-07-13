@@ -1,0 +1,9 @@
+- [ ] **Group 0: Database & Settings**
+  - [ ] Add `WebhookSettings` to Prisma and run migrations.
+  - [ ] Create Settings UI form and API route.
+- [ ] **Group 1: Dispatch Mechanism**
+  - [ ] Add "Dispatch" button to `RefinementChat.tsx`.
+  - [ ] Wire up `/api/export` to dispatch to the DB-configured webhook.
+- [ ] **Group 2: The Feedback Loop**
+  - [ ] Create `/api/intents/status` endpoint.
+  - [ ] Add status indicator to Refinement UI.

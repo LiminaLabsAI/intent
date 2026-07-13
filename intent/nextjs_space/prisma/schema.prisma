@@ -26,6 +26,8 @@ enum IntentStatus {
   CONDITIONAL_APPROVAL
   REJECTED
   ARCHIVED
+  DISPATCHED
+  EXECUTED
 }
 
 enum IntentType {
@@ -126,6 +128,7 @@ model Intent {
   expectedOutcome     String?         
   currentStage        Int             @default(1)
   processingLog       Json?           
+  artifacts           Json?           
   
   // Relations
   requesterId         String

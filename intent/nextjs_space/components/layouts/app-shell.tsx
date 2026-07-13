@@ -43,11 +43,14 @@ export function AppShell({
       {/* Main area */}
       <div className="lg:pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6">
+        <header className={cn(
+          "sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6",
+          !header && "lg:hidden"
+        )}>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className={cn(!header && "lg:hidden")}
             onClick={() => setSidebarOpen(true)}
           >
             <PanelLeft className="h-5 w-5" />

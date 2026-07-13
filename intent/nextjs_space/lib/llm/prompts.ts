@@ -26,9 +26,12 @@ A score of 80 or above is PASS. Below 80 is FAIL.
 
 If FAIL:
 - missingDetails should contain specific bullet points on what the user MUST provide.
-- formattedExport must be an empty string.
+- formattedExport, businessObjective, scope, and entities should be empty.
 
 If PASS:
 - missingDetails should be empty.
 - formattedExport MUST contain the final structured intent ready for export (in markdown format, detailing the objective, scope, and context).
+- businessObjective MUST be a concise summary of the core goal.
+- scope MUST describe the boundaries and constraints.
+- entities MUST be a key-value mapping of extracted variables, parameters, or objects.
 `;

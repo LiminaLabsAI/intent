@@ -32,14 +32,14 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
-| _(none)_ | | | |
+| 6 | feat/phase-6-studio-experience | Implementation | In Progress |
 
 ## Upcoming Phases
 
 | Phase | Name | Status | Key Deliverables |
 |-------|------|--------|-----------------|
 | 4 | SSE Optimizations | Not Started | Re-evaluating stage 2-6 streaming error handling and auto-reconnections |
-| 5 | Agentic Dispatch | Not Started | Execution pipeline parsing output files to downstream subagents |
+| 5 | Agentic Dispatch | Paused | Execution pipeline parsing output files to downstream subagents |
 
 ## Blockers
 

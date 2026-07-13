@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, AlertTriangle, CheckCircle, Database, Activity } from "lucide-react";
+import { Send, AlertTriangle, CheckCircle, Database, Activity, Download, FileText, Cpu } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import LiveDocument from "./LiveDocument";
+import MiniGraph from "./MiniGraph";
 
 type Message = {
   id: string;
@@ -17,6 +19,11 @@ export default function RefinementChat() {
   const [isTyping, setIsTyping] = useState(false);
   const [score, setScore] = useState<number>(0);
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [intentData, setIntentData] = useState<any>(null);
+  const [isExpandingPRD, setIsExpandingPRD] = useState<boolean>(false);
+  const [isExpandingPLAN, setIsExpandingPLAN] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get('id');
   const [intentId, setIntentId] = useState<string | null>(idFromUrl || null);
@@ -29,6 +36,7 @@ export default function RefinementChat() {
       fetch(`/api/intents/${idFromUrl}`)
         .then(res => res.json())
         .then(data => {
+          setIntentData(data);
           if (data && data.processingLog && data.processingLog.messages) {
             setMessages(data.processingLog.messages.map((m: any, idx: number) => ({
               id: idx.toString(),
@@ -43,6 +51,7 @@ export default function RefinementChat() {
     } else {
       // User clicked New Intent and URL cleared the ID
       setIntentId(null);
+      setIntentData(null);
       setMessages([]);
       setInput("");
     }
@@ -56,6 +65,40 @@ export default function RefinementChat() {
     scrollToBottom();
   }, [messages]);
 
+  // Poll for execution updates from webhook
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (intentId) {
+      interval = setInterval(() => {
+        fetch(`/api/intents/${intentId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data?.comments?.length > 0) {
+              const executionComments = data.comments.filter((c: any) => c.content.startsWith('Execution Update'));
+              setMessages(prev => {
+                const newMessages = [...prev];
+                let changed = false;
+                for (const c of executionComments) {
+                  if (!prev.find(m => m.id === c.id || m.content.includes(c.content))) {
+                    newMessages.push({ id: c.id, role: "agent", content: `🤖 **Update from Execution Agent:**\n\n${c.content}` });
+                    changed = true;
+                  }
+                }
+                return changed ? newMessages : prev;
+              });
+              
+              // Refresh intentData to ensure we have latest artifacts if needed
+              fetch(`/api/intents/${intentId}`).then(r => r.json()).then(d => setIntentData(d)).catch(console.error);
+            }
+          })
+          .catch(console.error);
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    }
+  }, [intentId]);
+
   // Background evaluation hook
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -64,12 +107,15 @@ export default function RefinementChat() {
       fetch("/api/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages })
+        body: JSON.stringify({ messages, intentId })
       })
       .then(res => res.json())
       .then(data => {
         if (data && typeof data.score === 'number') {
           setScore(data.score);
+          if (intentId) {
+            fetch(`/api/intents/${intentId}`).then(r => r.json()).then(d => setIntentData(d)).catch(console.error);
+          }
         }
       })
       .catch(console.error)
@@ -86,6 +132,111 @@ export default function RefinementChat() {
 
   const readiness = getReadiness();
   const computeSaved = `$${((score / 100) * 15).toFixed(2)}`;
+
+  const handleDispatch = async () => {
+    if (!intentId) return;
+    setIsDispatching(true);
+    try {
+      const res = await fetch("/api/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId })
+      });
+      if (!res.ok) {
+         const errData = await res.json();
+         throw new Error(errData.error || "Dispatch failed");
+      }
+      
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: "agent", 
+        content: `🚀 **Intent successfully dispatched!**\n\nThe Execution Agent has accepted the payload and is currently working on it. I will monitor the execution progress and update you here.` 
+      }]);
+    } catch (err: any) {
+      console.error(err);
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: "agent", 
+        content: `❌ **Dispatch Failed**\n\n${err.message}` 
+      }]);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
+  const handleDownload = async (format: 'md' | 'okf') => {
+    setIsDownloading(true);
+    try {
+      const evalResponse = await fetch("/api/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      });
+      if (!evalResponse.ok) throw new Error("Evaluation request failed");
+      const evalData = await evalResponse.json();
+      
+      const blob = new Blob([evalData.formattedExport || ""], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `intent-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleExpand = async (type: 'PRD' | 'PLAN') => {
+    if (type === 'PRD') setIsExpandingPRD(true);
+    if (type === 'PLAN') setIsExpandingPLAN(true);
+    
+    try {
+      const response = await fetch("/api/expand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId, type })
+      });
+      
+      if (!response.ok) throw new Error("Expand request failed");
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+      
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('0:')) {
+            try {
+              const content = JSON.parse(line.substring(2));
+              text += content;
+              
+              setIntentData((prev: any) => {
+                const currentArtifacts = prev?.artifacts || {};
+                return {
+                  ...prev,
+                  artifacts: { ...currentArtifacts, [type]: text }
+                };
+              });
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (type === 'PRD') setIsExpandingPRD(false);
+      if (type === 'PLAN') setIsExpandingPLAN(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -226,32 +377,69 @@ export default function RefinementChat() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-white shadow-sm border border-gray-200 rounded-xl">
-      {/* Header Area */}
-      <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-         <div>
-            <h2 className="text-lg font-semibold text-gray-800">
-              {intentId ? "Intent Refinement" : "New Intent"}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {intentId ? "Continue refining your business objective" : "Describe your objective to begin"}
-            </p>
-         </div>
-         {messages.length > 0 && (
-           <div className="flex items-center gap-6">
-             <div className="text-right">
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1 flex items-center gap-1 justify-end">
-                  Readiness {isEvaluating && <Activity className="w-3 h-3 animate-pulse text-blue-500" />}
-                </div>
-                <div className={`text-sm font-medium ${readiness.color}`}>{readiness.label}</div>
-             </div>
-             <div className="text-right">
-                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Est. Compute Saved</div>
-                <div className="text-sm font-medium text-emerald-600">+{computeSaved}</div>
-             </div>
-           </div>
-         )}
+    <div className="flex flex-col h-full overflow-hidden gap-4">
+      {/* Page Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-gray-100 shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Intent Studio</h1>
+          <p className="text-sm text-gray-500 mt-1">Refine and structure your business objectives with Flow AI</p>
+        </div>
+        {messages.length > 0 && (
+          <div className="text-right bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">
+            <div className="text-xs text-emerald-600 uppercase tracking-wider font-bold">Compute Saved</div>
+            <div className="text-lg font-bold text-emerald-700">+{computeSaved}</div>
+          </div>
+        )}
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full overflow-hidden">
+        {/* Left Panel: Chat Interface */}
+        <div className="flex flex-col h-full overflow-hidden bg-white shadow-md border border-gray-200 rounded-2xl">
+        {/* Chat Header */}
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
+           <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
+                {intentId ? "Refinement Session" : "New Session"}
+              </h2>
+           </div>
+           {messages.length > 0 && (
+             <div className="flex items-center gap-4">
+               <div className="text-right">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5 flex items-center justify-end gap-1">
+                    Readiness {isEvaluating && <Activity className="w-3 h-3 animate-spin text-blue-500" />}
+                  </div>
+                  <div className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                    score >= 80 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                    score >= 50 ? "bg-amber-50 text-amber-700 border-amber-200" :
+                    "bg-red-50 text-red-700 border-red-200"
+                  }`}>{readiness.label}</div>
+               </div>
+             </div>
+           )}
+        </div>
+             {score >= 80 && (
+                <div className="flex items-center gap-2 px-5 py-2 bg-gray-50 border-b border-gray-100">
+                  <button
+                    onClick={() => handleDownload('md')}
+                    disabled={isDownloading}
+                    className="px-3 py-1 bg-white text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-100 disabled:opacity-50 flex items-center gap-1.5 transition-colors border border-gray-200 shadow-sm"
+                    title="Download as Markdown"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    MD
+                  </button>
+                  <button
+                    onClick={() => handleDownload('okf')}
+                    disabled={isDownloading}
+                    className="px-3 py-1 bg-white text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-100 disabled:opacity-50 flex items-center gap-1.5 transition-colors border border-gray-200 shadow-sm"
+                    title="Download as OKF"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    OKF
+                  </button>
+                </div>
+             )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -310,6 +498,23 @@ export default function RefinementChat() {
           Powered by Flow Refinement Engine (Fast Model)
         </div>
       </div>
+      </div>
+      
+      {/* Right Panel: Studio Artifacts */}
+      <div className="flex flex-col h-full gap-6 overflow-hidden hidden lg:flex">
+         <div className="flex-1 overflow-hidden bg-white shadow-md border border-gray-200 rounded-2xl">
+           <LiveDocument 
+             intentData={intentData} 
+             onExpand={handleExpand}
+             isExpandingPRD={isExpandingPRD}
+             isExpandingPLAN={isExpandingPLAN}
+           />
+         </div>
+         <div className="h-[30%] min-h-[200px] bg-white shadow-md border border-gray-200 rounded-2xl">
+           <MiniGraph intentData={intentData} />
+         </div>
+      </div>
+    </div>
     </div>
   );
 }
