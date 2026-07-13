@@ -61,15 +61,31 @@ export async function POST(req: NextRequest) {
       const paddedEmb = padEmbedding(embedding);
       
       const similar = await prisma.$queryRawUnsafe<any[]>(`
-        SELECT "rawInput" FROM "Intent" 
+        SELECT id, "rawInput" FROM "Intent" 
         WHERE embedding IS NOT NULL
         ORDER BY embedding <-> $1::vector 
         LIMIT 3
       `, `[${paddedEmb.join(',')}]`);
       
       if (similar && similar.length > 0) {
-        const pastIntents = similar.map(s => `- ${s.rawInput}`).join('\n');
-        systemPrompt += `\n\nFor context, here are similar historical intents requested by others in the organization:\n${pastIntents}\nYou can use this to proactively suggest related topics or contexts.`;
+        let similarContext = "";
+        for (const sim of similar) {
+           const nodes = await prisma.intent.findUnique({
+              where: { id: sim.id },
+              include: {
+                 topics: { include: { topic: true } },
+                 contexts: { include: { context: true } }
+              }
+           });
+           const nodeNames = [
+              ...(nodes?.topics.map(t => t.topic.name) || []),
+              ...(nodes?.contexts.map(c => c.context.name) || [])
+           ].filter(Boolean).join(', ');
+           
+           similarContext += `- Intent: "${sim.rawInput}" | Extracted Context: ${nodeNames || "None"}\n`;
+        }
+        
+        systemPrompt += `\n\nI found similar historical intents in the organization:\n${similarContext}\nYou MUST NOT automatically apply assumptions from these past intents. Instead, you MUST start your response by explicitly asking the user if they want to apply the context from the similar past intent. Format it like: "I noticed in a previous similar intent [Intent Name], the context was [Context]. Would you like me to apply that same context here, or are we doing something different?"`;
       }
     } catch (err) {
       console.error("RAG search error:", err);
