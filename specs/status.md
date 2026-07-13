@@ -22,6 +22,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | 2 | LLM Integration | complete | No |
 | 3 | Validation & Quality Gates | complete | v0.2.0 |
 | 7 | Deterministic Trunk (rails) | complete | branch (feat/intent-agent) |
+| 8 | The Agent Loop (driver) | complete | branch (feat/intent-agent) |
 
 ## Ad-hoc / Patch Releases
 
@@ -34,7 +35,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 8 | feat/intent-agent | Implementation | Agent loop — perceive→decide→narrate |
+| 9 | feat/intent-agent | Brainstorm | Studio UI on the trunk + BUG-001 fix |
 
 ## Upcoming Phases
 

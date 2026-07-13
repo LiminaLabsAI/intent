@@ -39,3 +39,11 @@ Affects-specs: none
 Detail: Like Phase 7, Phase 8 is verifiable without the running Next app or a DB — the loop is a testable library plus a real-model smoke. HTTP routes (`/refine`, `/evaluate` re-pointed) and the Studio UI land in Phase 9 once app + DB + auth env are stood up.
 
 ---
+
+### [NOTE] 2026-07-14 — Live model verified; prompt tuning applied
+Topics: verification, prompts, model-behavior
+Affects-phases: phase-8-agent-loop
+Affects-specs: none
+Detail: Real HF turn (Qwen2.5-7B-Instruct) on "Migrate our auth to OAuth" → classifies CHANGE, judges the vague one-liner as weak (readiness vague 0/8), DECIDE picks infer_confirm on objective, narration: "I read this as wanting to switch from your current authentication method to using OAuth. Is that correct?" — one move, no barrage. Two prompt fixes were needed: (1) Narrate must not leak internal jargon (slot/rubric/"strong") into user-facing text — now plain-language only; (2) Perceive must be a strict judge (a bare restatement is 'weak', prefer weak over strong) — fixed over-eager readiness. 46/46 tests green.
+
+---
