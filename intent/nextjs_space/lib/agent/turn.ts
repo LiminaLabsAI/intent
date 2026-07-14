@@ -29,7 +29,10 @@ export async function runTurn(
   llm: LLM,
   opts: { risk?: Risk; at?: string; by?: string; history?: ChatTurn[] } = {},
 ): Promise<TurnResult> {
-  const risk = opts.risk ?? 'medium';
+  // opts.risk is an EXPLICIT override only. Normally we drive readiness by the
+  // record's own assessed risk (Perceive sets it) — hardcoding 'medium' here
+  // silently defeated right-sizing (a high-risk intent got a medium required-set).
+  const riskOverride = opts.risk;
   const at = opts.at ?? new Date().toISOString();
   const by = opts.by ?? 'user';
   const history = opts.history ?? [];
@@ -44,10 +47,11 @@ export async function runTurn(
   const events = await perceive(record, message, llm, { at, history });
   for (const e of events) record = await store.append(id, e);
 
-  // DECIDE (pure) → NARRATE (LLM)
+  // DECIDE (pure) → NARRATE (LLM) — both driven by the record's assessed risk.
+  const risk = riskOverride ?? record.risk ?? 'medium';
   const moves = decide(record, risk);
   const reply = await narrate(record, moves, llm, { history });
 
-  const view = await materializeRecord(store, id, risk);
+  const view = await materializeRecord(store, id, riskOverride);
   return { view: view!, moves, reply };
 }

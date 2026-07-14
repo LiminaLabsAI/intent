@@ -61,6 +61,19 @@ test('batch: DECIDE returns all open required gaps at once (§3.11)', () => {
   assert.ok(m.every((x) => !!x.slot));
 });
 
+test('terminal state short-circuits: APPROVED → handoff_complete, nothing re-opened', () => {
+  const r = allRequiredStrong('CHANGE', 'medium');
+  r.state = 'APPROVED';
+  const m = decide(r);
+  assert.equal(m.length, 1);
+  assert.equal(m[0].kind, 'handoff_complete');
+});
+
+test('an APPROVED record with open gaps still short-circuits (no re-asking)', () => {
+  const m = decide({ ...rec('CHANGE'), state: 'APPROVED' });
+  assert.equal(m[0].kind, 'handoff_complete');
+});
+
 test('governanceStop is null for a legitimate enterprise intent', () => {
   assert.equal(governanceStop(rec('CHANGE', {}, 'migrate auth to OAuth 2.0')), null);
 });

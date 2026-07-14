@@ -11,12 +11,15 @@
 import type { ChatTurn, Complexity, IntentEvent, IntentRecord, IntentType, Risk, SlotState } from './types.ts';
 import type { LLM } from './llm.ts';
 import { resolveSchema } from './schema.ts';
+import { assessReadiness } from './strength.ts';
 
 export interface PerceptionOut {
   intentType?: IntentType | null;
   risk?: Risk;
   complexity?: Complexity;
   slots?: { key: string; value?: string | null; state?: SlotState; reason?: string; inferred?: boolean }[];
+  /** The record is already complete and the user just approved handing it off. */
+  handoffConfirmed?: boolean;
 }
 
 function schemaList(type: IntentType | null): string {
@@ -39,6 +42,12 @@ From the user's message and the current record you:
 3) INFER the obvious slot values the intent implies, even if unstated. A "todo CRUD web app" obviously has scope "a web app with create/read/update/delete of todos", entities "todos", acceptance "the user can create, read, update, and delete todos". Only omit a slot if it genuinely cannot be inferred.
 4) judge each slot's state — adequate FOR THIS INTENT'S RISK, not maximal. A low-risk trivial intent's slot is 'strong' with a clear one-liner; a high-risk change needs a concrete, verifiable value. Do not demand more precision than the risk warrants.
 
+ACCEPTING ANSWERS (critical — do NOT re-ask an answered slot):
+- When the user declines a slot, defers the choice to you, or says there are none ("no tech stack", "you choose", "no preference", "whatever you think", "none", "up to you", "I don't mind"), that is a DECISION that COMPLETES the slot — not a gap. Record the decision as the value (e.g. context: "No constraints specified — implementer's choice; assume any modern stack") and mark it "strong".
+- If a slot was already asked and the user responded in any way, fold their response and move on. NEVER ask for the same slot twice.
+
+HANDOFF: if the record is already complete (all needed slots strong) and the user's latest message approves proceeding ("yes", "ok", "that's fine", "go ahead", "hand it off", "sounds good"), set "handoffConfirmed": true. Otherwise omit it.
+
 Intent types: CHANGE (modify existing) · CREATE (build new) · ANALYZE (investigate) · REPORT (produce a document).
 Slot states: empty | weak (too vague for this risk) | ambiguous (>1 reading) | conflicting (contradicts another slot) | strong (adequate for this risk).
 
@@ -48,7 +57,7 @@ ${schemaList(type)}
 You WRITE the acceptance-criteria slot yourself (what the delivered result must do) — never ask the user to describe how it would be tested.
 
 Respond ONLY with JSON:
-{"intentType":"CHANGE|CREATE|ANALYZE|REPORT","risk":"low|medium|high","complexity":"trivial|moderate|complex","slots":[{"key":"<key>","value":"<value>","state":"<state>","reason":"<short>"}]}`;
+{"intentType":"CHANGE|CREATE|ANALYZE|REPORT","risk":"low|medium|high","complexity":"trivial|moderate|complex","handoffConfirmed":false,"slots":[{"key":"<key>","value":"<value>","state":"<state>","reason":"<short>"}]}`;
 }
 
 const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'and', 'or', 'for', 'with', 'in', 'on', 'is', 'are', 'be', 'can', 'will', 'this', 'that', 'we', 'our', 'need', 'want', 'app', 'system', 'new']);
@@ -113,6 +122,23 @@ export async function perceive(
     }
     if (s.state) {
       events.push({ kind: 'slot_assessed', at, by: 'agent', key: s.key, state: s.state, reason: s.reason });
+    }
+  }
+
+  // TERMINAL HANDOFF: if the user approved handing off AND the record (with this
+  // turn's changes projected in) is actually ready, transition to APPROVED so the
+  // agent stops re-offering. The readiness gate backs the LLM's affirmation flag.
+  if (out.handoffConfirmed && record.state !== 'APPROVED') {
+    const projected: IntentRecord = { ...record, slots: { ...record.slots } };
+    for (const e of events) {
+      if (e.kind === 'slot_valued') projected.slots[e.key] = { ...(projected.slots[e.key] ?? { key: e.key, value: null, state: 'empty' }), value: e.value };
+      else if (e.kind === 'slot_assessed') projected.slots[e.key] = { ...(projected.slots[e.key] ?? { key: e.key, value: null, state: 'empty' }), state: e.state };
+      else if (e.kind === 'sized') projected.risk = e.risk;
+    }
+    if (assessReadiness(projected, projected.risk ?? 'medium').readiness === 'ready') {
+      // Walk the legal FSM path to APPROVED (DRAFT → IN_PROGRESS → APPROVED).
+      if (record.state === 'DRAFT') events.push({ kind: 'transitioned', at, by: 'agent', to: 'IN_PROGRESS' });
+      events.push({ kind: 'transitioned', at, by: 'agent', to: 'APPROVED' });
     }
   }
   return events;

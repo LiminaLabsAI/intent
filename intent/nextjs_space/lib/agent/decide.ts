@@ -20,7 +20,8 @@ export type MoveKind =
   | 'disambiguate'
   | 'surface_conflict'
   | 'split'
-  | 'close';
+  | 'close'
+  | 'handoff_complete';
 
 export interface Move {
   kind: MoveKind;
@@ -64,6 +65,12 @@ function moveForState(state: SlotState): MoveKind {
 }
 
 export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium'): Move[] {
+  // TERMINAL: once approved and handed off, the conversation is done — never
+  // re-open gaps or re-offer the handoff. This short-circuits everything.
+  if (record.state === 'APPROVED') {
+    return [{ kind: 'handoff_complete', rationale: 'record approved and handed off to the executor' }];
+  }
+
   const gov = governanceStop(record);
   if (gov) return [gov];
 

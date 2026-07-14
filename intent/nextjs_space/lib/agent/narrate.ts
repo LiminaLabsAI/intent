@@ -26,6 +26,7 @@ Single moves:
 - disambiguate: point out the two possible readings and ask which they mean.
 - surface_conflict: name the contradiction and ask them to choose.
 - close: say it's ready, briefly restate the objective, and offer to hand it off.
+- handoff_complete: the intent is finalized and handed off to the team/executor. Confirm it warmly in one line and STOP — do not ask anything further, do not re-list slots, do not re-offer.
 - governance_stop: gently say it looks outside work scope and offer to flag it for a human.`;
 
 function moveLine(record: IntentRecord, m: Move): string {
