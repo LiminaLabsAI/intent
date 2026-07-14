@@ -1,6 +1,6 @@
 ---
 type: Phase
-status: in-progress
+status: complete-on-branch
 tags: [working-memory, build-run, cost-engine, persona, actual-cost, clarify, assumptions]
 ---
 

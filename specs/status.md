@@ -38,7 +38,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 12 | feat/intent-agent | Implementation (Group 0) | Working-Memory Build Flow & Cost Engine: pick → clarify(+verify assumptions) → build gate → build run + actual cost. Ratifies the shipped cost engine (ADR-0001) + persona picker. Building on feat/intent-agent (no new branch, per standing rule; merge pending review). |
+| 12 | feat/intent-agent | Complete on branch (verified) — pending review/merge | Working-Memory Build Flow & Cost Engine: pick → clarify(+verify assumptions) → build gate → build run + actual cost. All 5 groups done; 71/71 tests; live-verified on DeepSeek (build → built + actual cost). V2/Future deferred to roadmap 20–21. |
 
 ## Upcoming Phases
 
