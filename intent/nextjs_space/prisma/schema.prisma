@@ -128,7 +128,8 @@ model Intent {
   expectedOutcome     String?         
   currentStage        Int             @default(1)
   processingLog       Json?           
-  artifacts           Json?           
+  artifacts           Json?
+  transcript          Json?           // the /refine chat history (ChatTurn[]) — FEAT-001           
   
   // Relations
   requesterId         String

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
 import { getStore, getLLM, runTurn } from '@/lib/agent';
-import { createIntentHeader, isHeaderBound, syncIntentHeader } from '@/lib/agent/intent-header.ts';
+import { createIntentHeader, isHeaderBound, syncIntentHeader, saveTranscript } from '@/lib/agent/intent-header.ts';
+import type { ChatTurn } from '@/lib/agent/types.ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'message (non-empty string) is required' }, { status: 400 });
     }
     const risk = body?.risk;
-    const history = Array.isArray(body?.history) ? body.history.slice(-8) : undefined;
+    const historyFull: ChatTurn[] = Array.isArray(body?.history) ? body.history : [];
+    const history = historyFull.slice(-8); // last 8 turns is enough LLM context
 
     // Resolve the record id. New intent + a logged-in user → create an Intent
     // header row bound to the requester; otherwise fall back to an anonymous id.
@@ -33,7 +35,16 @@ export async function POST(req: NextRequest) {
     const result = await runTurn(store, id, message, getLLM(), { risk, history });
 
     if (isHeaderBound(id)) {
-      await syncIntentHeader(id, result.view).catch(() => {});
+      // Persist the FULL transcript (FEAT-001) so a reload restores the whole conversation.
+      const transcript: ChatTurn[] = [
+        ...historyFull,
+        { role: 'user', content: message },
+        { role: 'agent', content: result.reply },
+      ];
+      await Promise.all([
+        syncIntentHeader(id, result.view).catch(() => {}),
+        saveTranscript(id, transcript).catch(() => {}),
+      ]);
     }
     return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
   } catch (e) {

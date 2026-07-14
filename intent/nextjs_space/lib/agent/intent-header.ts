@@ -10,6 +10,7 @@
 
 import { prisma } from '../prisma.ts';
 import type { RecordView } from './materialize.ts';
+import type { ChatTurn } from './types.ts';
 
 async function nextIntentId(): Promise<string> {
   const n = await prisma.intent.count();
@@ -27,6 +28,11 @@ export async function createIntentHeader(requesterId: string, rawInput: string):
 /** A record id belongs to a header row if it isn't an anonymous `INT-xxxx` id. */
 export function isHeaderBound(id: string): boolean {
   return !id.startsWith('INT-');
+}
+
+/** Persist the full chat transcript (FEAT-001) so a reload restores the conversation, not just the opening line. */
+export async function saveTranscript(id: string, turns: ChatTurn[]): Promise<void> {
+  await prisma.intent.update({ where: { id }, data: { transcript: turns as unknown as object } });
 }
 
 /** Mirror the materialized record onto its header row (best-effort) for listing. */

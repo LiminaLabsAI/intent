@@ -55,13 +55,22 @@ export default function RefinementChat() {
       setIntentId(null); setView(null); setMessages([]); setArtifacts({}); setInput("");
       return;
     }
-    // Genuine navigation to a different, existing intent → load it.
+    // Genuine navigation to a different, existing intent → load it. Fetch the
+    // record (view) and the header (transcript + artifacts) together, then set
+    // messages ONCE — prefer the saved transcript (FEAT-001), fall back to the
+    // opening line — so the two fetches never race to overwrite each other.
     shownId.current = idFromUrl;
     setIntentId(idFromUrl);
-    fetch(`/api/agent/record/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((v) => {
-      if (v) { setView(v); if (v.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]); }
-    }).catch(() => {});
-    fetch(`/api/intents/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.artifacts) setArtifacts(d.artifacts); }).catch(() => {});
+    Promise.all([
+      fetch(`/api/agent/record/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`/api/intents/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([v, d]) => {
+      if (v) setView(v);
+      if (d?.artifacts) setArtifacts(d.artifacts);
+      const transcript = Array.isArray(d?.transcript) ? (d.transcript as Msg[]) : null;
+      if (transcript && transcript.length) setMessages(transcript);
+      else if (v?.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]);
+    });
   }, [idFromUrl]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
