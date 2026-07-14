@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Download, Sparkles, Cpu, Pencil, Check } from "lucide-react";
+import { Send, Download, Sparkles, Cpu, Pencil, Check, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,6 +37,7 @@ export default function RefinementChat() {
   const [editing, setEditing] = useState<{ key: string; value: string } | null>(null);
   const [expanding, setExpanding] = useState<"PRD" | "PLAN" | null>(null);
   const [artifacts, setArtifacts] = useState<{ PRD?: string; PLAN?: string }>({});
+  const [drawer, setDrawer] = useState<"PRD" | "PLAN" | null>(null);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -115,6 +116,22 @@ export default function RefinementChat() {
     } catch (e) { /* ignore */ } finally { setExpanding(null); }
   }
 
+  // Open the artifact drawer; generate on first open, otherwise just reveal it.
+  function openArtifact(type: "PRD" | "PLAN") {
+    setDrawer(type);
+    if (!artifacts[type]) expand(type);
+  }
+
+  function downloadArtifact(type: "PRD" | "PLAN") {
+    const md = artifacts[type];
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${type.toLowerCase()}.md`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportMd() {
     if (!view) return;
     const r = view.record;
@@ -190,8 +207,8 @@ export default function RefinementChat() {
               {view && (
                 <div className="flex items-center gap-2">
                   <button onClick={exportMd} title="Export markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>
-                  {isReady && <button onClick={() => expand("PRD")} disabled={!!expanding} className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {expanding === "PRD" ? "…" : "PRD"}</button>}
-                  {isReady && artifacts.PRD && <button onClick={() => expand("PLAN")} disabled={!!expanding} className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 disabled:opacity-50 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> {expanding === "PLAN" ? "…" : "Plan"}</button>}
+                  {isReady && <button onClick={() => openArtifact("PRD")} className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {expanding === "PRD" ? "…" : "PRD"}</button>}
+                  {isReady && artifacts.PRD && <button onClick={() => openArtifact("PLAN")} className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> {expanding === "PLAN" ? "…" : "Plan"}</button>}
                 </div>
               )}
             </div>
@@ -255,14 +272,43 @@ export default function RefinementChat() {
             </div>
           )}
 
-          {(artifacts.PRD || artifacts.PLAN) && (
-            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl p-4 prose prose-sm max-w-none">
-              {artifacts.PRD && (<><h2 className="text-blue-700">Product Requirements Document</h2><ReactMarkdown remarkPlugins={[remarkGfm]}>{artifacts.PRD}</ReactMarkdown></>)}
-              {artifacts.PLAN && (<><hr /><h2 className="text-purple-700">Implementation Plan</h2><ReactMarkdown remarkPlugins={[remarkGfm]}>{artifacts.PLAN}</ReactMarkdown></>)}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Artifact drawer — slides over the studio so the working memory stays put */}
+      {drawer && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={() => setDrawer(null)} />
+          <div className="relative z-50 w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-1.5">
+                {(["PRD", "PLAN"] as const).map((t) =>
+                  (artifacts[t] || t === drawer) ? (
+                    <button key={t} onClick={() => openArtifact(t)}
+                      className={`px-3 py-1.5 text-sm rounded-lg font-medium ${drawer === t ? "bg-indigo-600 text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+                      {t === "PRD" ? "PRD" : "Plan"}
+                    </button>
+                  ) : null,
+                )}
+                {expanding === drawer && <span className="text-xs text-gray-400 ml-1 animate-pulse">generating…</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                {artifacts[drawer] && <button onClick={() => downloadArtifact(drawer)} title="Download markdown" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>}
+                <button onClick={() => setDrawer(null)} title="Close" className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-7 py-6">
+              {artifacts[drawer] ? (
+                <div className="prose prose-sm max-w-none prose-headings:scroll-mt-4 prose-pre:bg-gray-50 prose-pre:text-gray-800 prose-pre:border prose-pre:border-gray-100">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifacts[drawer]}</ReactMarkdown>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-400 text-sm mt-6"><span className="inline-block w-3 h-3 rounded-full bg-indigo-400 animate-pulse" /> Generating {drawer === "PRD" ? "the PRD" : "the implementation plan"}…</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
