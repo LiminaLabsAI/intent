@@ -36,7 +36,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 7–9 | feat/intent-agent | Arc complete | agent works end-to-end (browser-verified); pending your review + merge |
+| 10 | feat/intent-agent | Implementation | Studio convergence — swap /refine's engine to the agent |
 
 ## Upcoming Phases
 
