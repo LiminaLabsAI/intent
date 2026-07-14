@@ -25,19 +25,32 @@ Flow becomes the industry-standard UI/UX portal for designing, validating, and a
 | 5 | Agentic Dispatch | Paused |
 | 6 | Studio Experience | In progress (`feat/phase-6-studio-experience`) |
 
-### The Intent Agent build arc
-> One feature branch `feat/intent-agent`. Phases 7→9 build + test on it with **no merge to `main` until the working product is complete and verified**. Phases 10–13 continue after the first merge. Design reference: `specs/vision/product-design.md` §3.4–3.10.
+### The Intent Agent build arc — end-to-end lifecycle
+> One feature branch `feat/intent-agent`. Each phase maps to the Flow Intent Lifecycle
+> (**1** Capture → **2** Parse → **3** Semantic → **4** Normalize → **5** Quality Gate →
+> **6** Approval Decision Engine → **7** Intent ID) and the three pillars (Evidence ·
+> Governance · Progressive Autonomy). The lifecycle's load-bearing invariant:
+> *no intent executes without passing the Quality Gate **AND** the Approval Decision Engine.*
+>
+> **Status honesty:** 7–10 shipped the *refinement* half (capture → understanding →
+> **continuous** quality gate → immutable registry) — the "clarity" half, browser-verified.
+> The *governance* half (stage 6 engine, human review, autonomy) — the "control" half and the
+> product's real differentiator — is 12–14. Design reference: `product-design.md` §3.4–3.11, §4, §5.
 
-| Phase | Name | Delivers | Design ref |
-|-------|------|----------|------------|
-| 7 | Deterministic Trunk | event-sourced record · slot schema · state machine · deterministic strength (the rails) | §3.6/3.8/3.9 |
-| 8 | The Agent Loop | Perceive→coded-DECIDE→Narrate · LLM strength-judge · gap→move · one intent end-to-end | §3.4/3.5/3.10 |
-| 9 | Studio on the Trunk + Fixes | re-point Studio UI onto the record · Readiness states · evidence visible · fix BUG-001 | §5.1 |
-| 10 | Studio Convergence | one Studio: swap `/refine`'s engine to the agent, bind to Intent row + auth, retire the old flow | §8/§9 |
-| 11 | Precedent & Memory | prior intents + outcomes · recommend/reuse moves · confidence floor · promotion loop | §3.7 |
-| 12 | Governance Thread | approval decision + human review + conditional · Governance-stop move | §4.3–4.5 |
-| 13 | Handoff & Advisory | working-memory export · artifact expansion · cost/persona advisory | §5 |
-| 14 | Feedback Flywheel | outcome capture → widen auto-approve envelope | §6 |
+| # | Phase | Delivers (exact) | Lifecycle stage | Status |
+|---|-------|------------------|-----------------|--------|
+| 7 | Deterministic Trunk | event-sourced `IntentEvent`/`SlotValue` record + replay · guarded lifecycle state machine · layered slot schema (spine + type-templates + rubrics + risk-weighted requiredness) · strength fn `Readiness = f(slot states)` | 5 (gate, continuous) · 7 (registry) | ✅ done |
+| 8 | The Agent Loop | Perceive (LLM: fold + classify + strict judge) · deterministic DECIDE policy · Narrate · turn orchestrator · LLM behind an interface (FakeLLM / HfLLM; `AGENT_MODEL` env) | 1·2·3 · Needs-Clarification loop | ✅ done |
+| 9 | Studio on the Trunk | `/studio` split-screen (chat · live record · readiness · graph) over the agent, DB-persisted | UI for 1–5 | ✅ done |
+| 10 | Studio Convergence | one Studio at `/refine`: auth + shell + history bound to an `Intent` header row (requesterId, INT-XXXXX) · `RefinementChat`→`/api/agent/turn` · slots/evidence/inline-edit/graph/PRD-Plan/export · `/studio`→redirect | UI + registry binding | ✅ done |
+| 11 | Behavior & Cost | **right-size** the required-set by complexity/risk · **infer-first** proposing · **batch-present** (O4: draft + all gaps in one shot, not drip) · self-owned termination + "good-enough" judging · **pre-execution cost advisory** (§5.2: tiktoken input · output estimate · price catalog · **ranges** · persona rec · refine-to-save) | refines 1–5 + advisory | ⏳ **next** |
+| 12 | Precedent & Memory | pgvector semantic memory over prior intents **+ outcomes** · recommend-from-precedent / offer-reuse moves · confidence floor + cold-start · emergent-slot promotion loop | Continuous Feedback (near-term) | ⏳ |
+| 13 | Governance Engine (Approval Decision) | stage-6 engine: evaluate Evidence Quality · Policy & Compliance · Semantic Conflicts · Risk & Impact · Delegation (EACI) · Autonomy Eligibility → **5 outcomes** (Auto-Approved · Needs-Clarification · Human-Review · Conditional · Rejected) · drive governance lifecycle states · **enforce the invariant** (rule-based first) | **6 — the missing half** | ⏳ |
+| 14 | Human Review Workflow | owner/SME routing map · review tasks · SLA · Review&Evaluate → Decision (approve / request-changes / reject) → Provide Reason (comments · conditions · constraints) · conditional-approval monitor | Human Review · Rejected · Conditional | ⏳ |
+| 15 | Handoff & Dispatch | working-memory export (OKF/MD + compression **projection**, never a mutation, §5.1) · artifact expansion (PRD/Plan) · dispatch to a downstream executor with the **persona/config attached** · INT-XXXXX minted at approval | 7 (ID at approval) · handoff | ⏳ |
+| 16 | Normalization & Ontology | stage-4: ontology mappings · synonym resolution · standardized intent · domain alignment (feeds the gate's "Valid Domain" check) | **4 — genuinely absent** | ⏳ |
+| 17 | Multi-source Capture | Applications/APIs · Agents/Automation · Documents/Emails → the same canonical record (headless capture writes to the trunk) | 1 (other sources) | ⏳ |
+| 18 | Progressive Autonomy & Flywheel | outcome capture → patterns & insights → quality & process → models & policies → **widen the auto-approve envelope** | Progressive Autonomy | ⏳ (needs volume) |
 
 ## Guiding Principles
 1. Ship working software in every phase

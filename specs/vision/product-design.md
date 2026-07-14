@@ -200,6 +200,26 @@ A turn is a short deterministic pipeline with two cheap LLM calls at the edges:
 
 **Reuse (not rebuild):** the existing `/api/refine` (→ Narrate) and `/api/evaluate` (→ Perceive/structure) become these two edges, *re-pointed*: run Perceive **first** (mutating the record), insert the coded DECIDE between them, and make Narrate speak from the record + chosen move instead of free-chatting.
 
+### 3.11 The refinement cycle — right-sized, inference-first, batch (not drip)
+
+> **Correction to §3.5's "1–2 gaps per turn."** Field-testing exposed the failure: a *trivial* intent (a todo-CRUD app) gets interrogated like an auth migration — the agent drips one question at a time, re-asks the same slot, and never accepts a "good-enough" answer, even asking the user to *narrate how the built app would be tested*. It outsourced its own "are we done?" to the user. Three missing behaviors caused it; this section fixes them.
+
+**First principle — the agent is a *spec-writer, not a builder*.** Its job ends at "the record is Ready to hand off," *right-sized to the intent's risk*. It never asks the user how the *executed* app will be verified (that is the executor's acceptance test) — it **writes** the acceptance-criteria slot itself and confirms.
+
+**The cycle (the common path; the per-turn loop of §3.4 still runs underneath):**
+1. **Size** (cheap): classify · assess complexity/risk · **infer every obvious slot** · seed a cost ballpark.
+2. **Present (batch)**: show the draft working memory + **all remaining gaps at once** + readiness + cost band — one summary message plus the live panel. **Not one question per turn.**
+3. **Converge**: fold the user's bulk answer · re-present · a few passes to Ready.
+4. **Advise & hand off**: the pre-execution cost/persona advisory (§5.2) at Ready.
+
+**Right-sizing** (activates the deferred requiredness lever, §3.9): the required-slot set and the "strong" bar **scale with complexity × risk**. Trivial low-risk → objective + maybe one slot → Ready in one pass. High-risk change → the full template. *This is what stops over-interrogation.*
+
+**Inference-first** (§3.2 made real): Perceive proposes values for inferable slots; DECIDE prefers `infer-and-confirm`; `ask` fires only for genuine unknowns. The batch message reads *"I've inferred X, Y, Z — correct me — and I still need A, B."*
+
+**The agent owns termination.** Readiness = f(slot states) is the agent's call, made deterministically — never re-posed as "how will we know it's done?"; and a sufficient-for-the-risk answer is *accepted*, not pushed for more precision.
+
+**Fast lane = the default (O4).** The batch cycle *is* the fast lane. An optional "interview me" mode offers the guided one-at-a-time drip for users who want it.
+
 ---
 
 ## 4. The governed backbone
@@ -280,6 +300,27 @@ Reuses the cost machine from the senior's Gemini design, but fed **Flow's inputs
 ---
 
 ## 7. Current-state snapshot (for discussion)
+
+> **UPDATE — 2026-07-14 · Phases 7–10 shipped, browser-verified** (the snapshot below is the *pre-build* map, kept for history). What's real now:
+> - The **agent** is real — perceive→decide→narrate over an event-sourced record (Phases 7–8); the "two disconnected brains" of the old build are gone.
+> - **One Studio** at `/refine` (Phase 10): auth · sidebar history bound to `Intent` header rows · live record (slots · states · evidence · readiness) · inline editing · context graph · PRD/Plan · MD export — over the agent, DB-persisted (Neon).
+> - Model behind an interface; running **DeepSeek V4 Flash** (`:deepinfra`) — the prod model, for test/prod parity.
+>
+> **Lifecycle coverage — stages → status → phase (see roadmap for the full arc):**
+>
+> | Stage / component | Status | Phase |
+> |---|---|---|
+> | 1 Capture · 2 Parse · 3 Semantic | ✅ (Studio, human source) | 7–8 |
+> | 4 Normalization (ontology) | ❌ absent | 16 |
+> | 5 Quality Gate | ✅✅ **continuous** — improved on the diagram | 7 |
+> | 6 Approval Decision Engine | ❌ stub only — **the missing half** | 13 |
+> | 7 Intent ID + Registry (immutable · versioned · audit) | ✅ event-sourced | 7 · 10 |
+> | Needs-Clarification loop | ✅ (the agent) | 8 |
+> | Human Review · 5 outcomes · governance states | ❌ | 13–14 |
+> | Precedent · Feedback · Progressive Autonomy | ❌ | 12 · 18 |
+> | Handoff · dispatch · cost advisory | ❌ (cost designed) | 11 · 15 |
+>
+> **Verdict:** the *clarity* half is built (and improved on the diagram); the *control* (governance) half — the enterprise differentiator, and half of the invariant *"no execution without Gate AND Engine"* — is not. That's Phases 12–14, planned, not forgotten.
 
 > Point-in-time map from session exploration — **unverified against live code**; graduates to `status.md` at build time. One line: **the surface is real; the governed backbone is mostly a costume.** There are two parallel, contradictory implementations — a legacy per-stage pipeline (`app/api/intents/[id]/process/route.ts`) and the newer Studio flow (`/refine`, `/api/refine|evaluate|expand`). Zero tests.
 
