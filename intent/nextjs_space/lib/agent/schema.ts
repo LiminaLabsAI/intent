@@ -46,7 +46,7 @@ export const SPINE_SLOTS: SlotDef[] = [
     requiredness: req('required', 'required', 'required'),
   },
   {
-    key: 'acceptance_criteria', label: "How we'll know it's done", layer: 'spine',
+    key: 'acceptance_criteria', label: 'Outcome', layer: 'spine',
     describe: 'How we verify the objective is met.',
     rubric: 'Checkable output properties (Change/Create/Report), or an evidentiary bar (Analyze).',
     requiredness: req('recommended', 'required', 'required'),

@@ -45,13 +45,15 @@ export async function runBuild(
   store: IntentEventStore,
   id: string,
   llm: LLM,
-  opts: { at?: string; by?: string } = {},
+  opts: { at?: string; by?: string; force?: boolean } = {},
 ): Promise<IntentRecord> {
   const at = opts.at ?? new Date().toISOString();
   const by = opts.by ?? 'agent';
   let record = await store.load(id);
   if (!record) throw new Error(`no record for ${id}`);
-  if (record.built) return record;
+  // Idempotent by default; `force` regenerates the files (e.g. the user edited a
+  // field and asked to rebuild). A fresh `plan_built` event overwrites on replay.
+  if (record.built && !opts.force) return record;
 
   const outcome = record.outcome ?? 'plan';
   const { data: out, usage } = await llm.generateStructuredWithUsage<BuildOut>(system(outcome), recordSummary(record));

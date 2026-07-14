@@ -43,15 +43,17 @@ export async function POST(req: NextRequest) {
     if (body?.build === true) {
       const id = typeof body?.id === 'string' && body.id ? body.id : undefined;
       if (!id) return NextResponse.json({ error: 'id is required to build' }, { status: 400 });
-      await runBuild(store, id, getLLM());
+      const rebuild = body?.rebuild === true;
+      await runBuild(store, id, getLLM(), { force: rebuild });
       const view = await materializeRecord(store, id);
       if (!view) return NextResponse.json({ error: 'record not found' }, { status: 404 });
       const names = (view.record.files ?? []).map((f) => f.name).join(', ');
-      const reply = `Built ${view.record.files?.length ?? 0} file${(view.record.files?.length ?? 0) === 1 ? '' : 's'}${names ? ` — ${names}` : ''}. Actual cost ${view.record.actualCost != null ? `$${view.record.actualCost}` : 'recorded'}.`;
+      const count = view.record.files?.length ?? 0;
+      const reply = `${rebuild ? 'Rebuilt' : 'Built'} ${count} file${count === 1 ? '' : 's'}${names ? ` — ${names}` : ''}. Actual cost ${view.record.actualCost != null ? `$${view.record.actualCost}` : 'recorded'}.`;
       if (isHeaderBound(id)) {
         const transcript: ChatTurn[] = [
           ...historyFull,
-          { role: 'user', content: 'Build the working memory.' },
+          { role: 'user', content: rebuild ? 'Rebuild the plan.' : 'Build the working memory.' },
           { role: 'agent', content: reply },
         ];
         await Promise.all([

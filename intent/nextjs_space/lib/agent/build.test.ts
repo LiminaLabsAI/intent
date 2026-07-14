@@ -49,3 +49,19 @@ test('runBuild is idempotent — an already-built record returns unchanged', asy
   assert.equal(second.built, true);
   assert.equal(second.version, first.version, 'no new events on a re-build');
 });
+
+test('runBuild with force regenerates — new files overwrite on replay (point 5 rebuild)', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'b4', 'quick', 'plan');
+  const llm = new FakeLLM({ structs: [
+    { files: [{ name: 'plan.md', format: 'plan', body: '# Plan v1' }] },
+    { files: [{ name: 'plan.md', format: 'plan', body: '# Plan v2 (revised)' }] },
+  ] });
+  const first = await runBuild(store, 'b4', llm, { at: AT });
+  assert.match(first.files[0].content, /# Plan v1/);
+  const second = await runBuild(store, 'b4', llm, { at: AT, force: true });
+  assert.equal(second.built, true);
+  assert.notEqual(second.version, first.version, 'force appends a fresh plan_built');
+  assert.equal(second.files.length, 1);
+  assert.match(second.files[0].content, /# Plan v2 \(revised\)/, 'rebuilt files replace the old ones on replay');
+});

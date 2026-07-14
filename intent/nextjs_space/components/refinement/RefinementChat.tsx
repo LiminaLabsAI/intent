@@ -59,7 +59,6 @@ export default function RefinementChat() {
   const [awaitingOutcome, setAwaitingOutcome] = useState(false);
   const [building, setBuilding] = useState(false);
   const [fileView, setFileView] = useState<{ name: string; content: string } | null>(null);
-  const [showUnderstanding, setShowUnderstanding] = useState(true);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -157,14 +156,15 @@ export default function RefinementChat() {
   // The user approved building the working memory (ADR-0002) — the one run.
   async function buildMemory() {
     if (!intentId || building) return;
+    const rebuild = view?.record.built === true;
     setError(null);
     setBuilding(true);
     setAwaitingBuild(false);
-    setMessages((m) => [...m, { role: "user", content: "Build the working memory." }]);
+    setMessages((m) => [...m, { role: "user", content: rebuild ? "Rebuild the plan." : "Build the working memory." }]);
     try {
       const res = await fetch("/api/agent/turn", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: intentId, build: true, history: messages }),
+        body: JSON.stringify({ id: intentId, build: true, rebuild, history: messages }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "build failed");
@@ -203,6 +203,23 @@ export default function RefinementChat() {
     const a = document.createElement("a");
     a.href = url; a.download = name; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Split an OKF file's YAML front-matter from its markdown body so the viewer
+  // can render the metadata as a clean key/value header instead of a run-on blob
+  // (ReactMarkdown would otherwise mis-parse `--- … ---` as a setext heading).
+  function splitOkf(content: string): { meta: [string, string][]; body: string } {
+    const m = content.match(/^﻿?---\s*\n([\s\S]*?)\n---\s*\n?/);
+    if (!m) return { meta: [], body: content };
+    const meta: [string, string][] = [];
+    for (const line of m[1].split("\n")) {
+      const i = line.indexOf(":");
+      if (i === -1) continue;
+      const key = line.slice(0, i).trim();
+      const val = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+      if (key) meta.push([key, val]);
+    }
+    return { meta, body: content.slice(m[0].length) };
   }
 
   async function saveSlot(key: string, value: string) {
@@ -280,9 +297,15 @@ export default function RefinementChat() {
                 {modeLabel && <span className="text-gray-500 truncate capitalize">{modeLabel} mode</span>}
               </div>
               {view.cost && (
-                <span className="font-mono text-gray-600 shrink-0">
-                  ${view.cost.low.toFixed(3)}–${view.cost.high.toFixed(3)}
-                  {view.record.built && typeof view.record.actualCost === "number" && <span className="text-emerald-600"> · ${view.record.actualCost.toFixed(5)}</span>}
+                <span className="shrink-0 flex items-center gap-2 whitespace-nowrap">
+                  <span title="Estimated cost of the build run, before it runs" className="text-gray-500">
+                    Est. <span className="font-mono text-gray-700">${view.cost.high.toFixed(3)}</span>
+                  </span>
+                  {view.record.built && typeof view.record.actualCost === "number" && (
+                    <span title="Actual cost, measured after the build ran" className="text-emerald-700">
+                      · Actual <span className="font-mono">${view.record.actualCost.toFixed(5)}</span>
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -330,65 +353,80 @@ export default function RefinementChat() {
                 </div>
               </div>
             )}
-            {/* Build — in the conversation, always on, status-coloured (ADR-0002 amendment) */}
-            {view && !view.record.built && view.selectedPersona && !awaitingPersona && !awaitingOutcome && !loading && (
-              <div className="text-center pt-1">
-                <button onClick={buildMemory} disabled={building}
-                  className={`px-5 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50 inline-flex items-center gap-1.5 ${view.readiness.readiness === "ready" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"}`}>
-                  {building ? "Building…" : <><Sparkles className="w-4 h-4" /> Build {view.readiness.readiness === "ready" ? "the plan" : "anyway"}</>}
-                </button>
-                {view.readiness.readiness !== "ready" && <div className="text-[11px] text-gray-400 mt-1">Still gathering context — build now, or answer a bit more first.</div>}
-              </div>
-            )}
             {error && <div className="text-red-600 text-sm">⚠ {error}</div>}
             <div ref={endRef} />
           </div>
-          <div className="p-3 border-t border-gray-100 flex gap-2">
-            <textarea
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              rows={1} placeholder="Describe your intent…" value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              disabled={loading}
-            />
-            <button className="px-4 rounded-lg bg-indigo-600 text-white text-sm disabled:opacity-50" onClick={send} disabled={loading || !input.trim()}>
-              <Send className="w-4 h-4" />
-            </button>
+          <div className="border-t border-gray-100">
+            {/* Build — always visible when a mode is chosen; the user decides whether the context is full enough (point 5) */}
+            {view?.selectedPersona && !awaitingPersona && !awaitingOutcome && (
+              <div className="px-3 pt-3 flex items-center gap-2">
+                <button onClick={buildMemory} disabled={building}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50 inline-flex items-center gap-1.5 shrink-0 ${view.readiness.readiness === "ready" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"}`}>
+                  {building ? "Building…" : <><Sparkles className="w-4 h-4" /> {view.record.built ? "Rebuild" : view.readiness.readiness === "ready" ? "Build the plan" : "Build anyway"}</>}
+                </button>
+                <span className="text-[11px] text-gray-400 leading-snug">
+                  {view.record.built
+                    ? "Edit any field, then rebuild to regenerate the files."
+                    : view.readiness.readiness === "ready"
+                      ? "Ready — build the deliverable whenever you like."
+                      : "Still gathering context — build now, or answer a bit more first."}
+                </span>
+              </div>
+            )}
+            <div className="p-3 flex gap-2">
+              <textarea
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                rows={1} placeholder="Describe your intent…" value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                disabled={loading}
+              />
+              <button className="px-4 rounded-lg bg-indigo-600 text-white text-sm disabled:opacity-50" onClick={send} disabled={loading || !input.trim()}>
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Right column — Artifacts and Graph scroll independently */}
+        {/* Right column — three distinct cards, independent scroll (point 4) */}
         <div className="flex flex-col h-full gap-3 overflow-hidden hidden lg:flex">
-          <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden flex-1 min-h-0 flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="font-semibold text-gray-800">Artifacts</h2>
-                <p className="text-xs text-gray-400">the deliverable + the understanding behind it</p>
-              </div>
+          {/* 1 · Artifacts — the deliverable files only */}
+          <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden shrink-0 flex flex-col max-h-[42%]">
+            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+              <h2 className="font-semibold text-gray-800">Artifacts</h2>
+              <p className="text-xs text-gray-400">the deliverable — open or download</p>
             </div>
-            <div className="p-3 space-y-2 flex-1 min-h-0 overflow-y-auto">
-              {!view && <p className="text-gray-400 text-sm p-3">No intent yet — send a message to begin.</p>}
-              {view && (
+            <div className="p-3 space-y-2 overflow-y-auto">
+              {!view ? (
+                <p className="text-gray-400 text-sm px-1 py-1.5">No intent yet — send a message to begin.</p>
+              ) : view.record.files && view.record.files.length > 0 ? (
                 <>
-                  {/* Files — the built deliverable, primary (ADR-0002 amendment) */}
-                  {view.record.files && view.record.files.length > 0 ? (
-                    <>
-                      <div className="text-[11px] text-gray-400 px-1 flex items-center gap-1"><Download className="w-3 h-3" /> Files · OKF</div>
-                      {view.record.files.map((f) => (
-                        <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
-                          <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
-                          <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
-                        </div>
-                      ))}
-                    </>
-                  ) : (
-                    <div className="text-xs text-gray-400 px-1 py-1.5">Files appear here once you Build.</div>
-                  )}
-                  {/* Understanding — collapsible; fills live during clarify */}
-                  <button onClick={() => setShowUnderstanding((v) => !v)} className="w-full flex items-center gap-1 text-[11px] text-gray-400 px-1 pt-2 hover:text-gray-600">
-                    <span className={showUnderstanding ? "inline-block" : "-rotate-90 inline-block"}>▾</span> Understanding · {view.readiness.requiredStrong}/{view.readiness.required} strong · updates live
-                  </button>
-                  {showUnderstanding && view.schema.map((s) => {
+                  <div className="text-[11px] text-gray-400 px-1 flex items-center gap-1"><Download className="w-3 h-3" /> Files · OKF</div>
+                  {view.record.files.map((f) => (
+                    <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
+                      <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
+                      <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="text-xs text-gray-400 px-1 py-1.5">Files appear here once you Build — the plan / diagram / doc for your intent.</div>
+              )}
+            </div>
+          </div>
+
+          {/* 2 · Understanding — the reasoning behind the deliverable, fills live */}
+          {view && (
+            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden flex-1 min-h-0 flex flex-col">
+              <div className="px-4 py-3 border-b border-gray-100 shrink-0 flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-semibold text-gray-800">Understanding</h2>
+                  <p className="text-xs text-gray-400">how the agent reads your intent — updates live</p>
+                </div>
+                <span className="text-[11px] font-mono text-gray-400 shrink-0">{view.readiness.requiredStrong}/{view.readiness.required} strong</span>
+              </div>
+              <div className="p-3 space-y-2 overflow-y-auto">
+                {view.schema.map((s) => {
                     const slot = view.record.slots[s.key];
                     const state: SlotState = slot?.state ?? "empty";
                     const isEditing = editing?.key === s.key;
@@ -419,13 +457,13 @@ export default function RefinementChat() {
                       </div>
                     );
                   })}
-                </>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
+          {/* 3 · Context Graph — its own card */}
           {view?.record.built && graphData && (graphData.topics.length > 0 || graphData.contexts.length > 0) && (
-            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl h-[260px] shrink-0 overflow-hidden">
+            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl h-[240px] shrink-0 overflow-hidden">
               <MiniGraph intentData={graphData} />
             </div>
           )}
@@ -445,8 +483,30 @@ export default function RefinementChat() {
                 <button onClick={() => setFileView(null)} title="Close" className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-7 py-6 prose prose-sm max-w-none prose-pre:bg-gray-50 prose-pre:text-gray-800 prose-pre:border prose-pre:border-gray-100">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileView.content}</ReactMarkdown>
+            <div className="flex-1 overflow-y-auto px-7 py-6">
+              {(() => {
+                const { meta, body } = splitOkf(fileView.content);
+                return (
+                  <>
+                    {meta.length > 0 && (
+                      <div className="mb-6 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3">
+                        <div className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">Open Knowledge Format</div>
+                        <div className="space-y-1">
+                          {meta.map(([k, v]) => (
+                            <div key={k} className="flex gap-3 text-xs">
+                              <span className="text-gray-400 font-mono w-24 shrink-0">{k}</span>
+                              <span className="text-gray-700 font-mono break-all">{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="prose prose-sm max-w-none prose-pre:bg-gray-50 prose-pre:text-gray-800 prose-pre:border prose-pre:border-gray-100">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
