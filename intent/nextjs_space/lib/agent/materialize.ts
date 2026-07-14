@@ -16,7 +16,9 @@ import type { IntentEventStore } from './store.ts';
 import type { ReadinessReport } from './strength.ts';
 import { assessReadiness } from './strength.ts';
 import { resolveSchema, requirednessOf } from './schema.ts';
-import { estimateCost } from './cost.ts';
+import { advise } from './cost.ts';
+import { measure } from './measure.ts';
+import { loadCatalog } from './cost-catalog.ts';
 
 export interface SlotSummary {
   key: string;
@@ -51,5 +53,7 @@ export async function materializeRecord(
     requiredness: requirednessOf(d, risk),
     describe: d.describe,
   }));
-  return { record, readiness, schema, cost: estimateCost(record) };
+  // Cost uses the SAME resolved risk as readiness (persona pick must agree with sizing).
+  const cost = advise({ ...measure(record), risk }, await loadCatalog());
+  return { record, readiness, schema, cost };
 }

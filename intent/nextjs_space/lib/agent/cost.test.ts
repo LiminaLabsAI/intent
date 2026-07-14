@@ -1,56 +1,79 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateCost, recommendPersona, countInputTokens, estimateOutputTokens, PERSONAS } from './cost.ts';
-import type { Complexity, IntentRecord, Risk, Slot } from './types.ts';
+import { estimateCost, recommendPersona, advise } from './cost.ts';
+import type { Measurements } from './cost.ts';
+import { DEFAULT_MODELS, DEFAULT_PERSONAS, DEFAULT_PRIORS, defaultCatalog } from './cost-config.ts';
+import type { CostModel, Persona } from './cost-config.ts';
 
-function rec(partial: Partial<IntentRecord> = {}): IntentRecord {
-  return {
-    id: 'x', version: 0, rawInput: 'do a thing', intentType: 'CHANGE',
-    risk: 'medium', complexity: 'moderate', state: 'DRAFT', slots: {}, ...partial,
-  };
-}
-function strong(key: string, value: string): Slot {
-  return { key, value, state: 'strong' };
+const MODEL: CostModel = DEFAULT_MODELS[0];
+const persona = (name: string): Persona => DEFAULT_PERSONAS.find((p) => p.name === name)!;
+function meas(over: Partial<Measurements> = {}): Measurements {
+  return { inputTokens: 1500, intentType: 'CREATE', complexity: 'moderate', risk: 'medium', ...over };
 }
 
-test('recommendPersona: trivial+low → fast; complex or high → thorough; else balanced', () => {
-  assert.equal(recommendPersona(rec({ complexity: 'trivial', risk: 'low' })), 'fast');
-  assert.equal(recommendPersona(rec({ complexity: 'complex', risk: 'medium' })), 'thorough');
-  assert.equal(recommendPersona(rec({ complexity: 'moderate', risk: 'high' })), 'thorough');
-  assert.equal(recommendPersona(rec({ complexity: 'moderate', risk: 'medium' })), 'balanced');
-});
-
-test('estimateCost returns a real range with a known persona + assumptions', () => {
-  const est = estimateCost(rec({ slots: { scope: strong('scope', 'a broad scope covering many surfaces') } }));
-  assert.ok(est.low < est.high, 'low < high — a band, not a point');
-  assert.ok(est.low >= 0);
+test('estimateCost returns an honest band with persona + overflow + assumptions', () => {
+  const est = estimateCost({ measurements: meas(), model: MODEL, persona: persona('balanced'), priors: DEFAULT_PRIORS });
+  assert.ok(est.low < est.high, 'band, not a point');
   assert.equal(est.currency, 'USD');
-  assert.ok(est.assumptions.length >= 2);
-  assert.ok(PERSONAS[est.persona], 'persona is a known persona');
+  assert.equal(est.persona, 'balanced');
+  assert.equal(est.overflow, false);
+  assert.ok(est.assumptions.some((a) => a.includes('reference class code:moderate')));
 });
 
-test('a trivial low-risk intent costs less than a complex high-risk one', () => {
-  const trivial = estimateCost(rec({ complexity: 'trivial', risk: 'low' }));
-  const heavy = estimateCost(rec({ complexity: 'complex', risk: 'high' }));
-  assert.ok(trivial.high < heavy.high);
+test('reference class scales cost: complex > trivial for the same everything', () => {
+  const trivial = estimateCost({ measurements: meas({ complexity: 'trivial' }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const complex = estimateCost({ measurements: meas({ complexity: 'complex' }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  assert.ok(complex.high > trivial.high);
 });
 
-test('refine-to-save is present when the right-sized persona beats frontier, absent at frontier', () => {
-  const cheap = estimateCost(rec({ complexity: 'trivial', risk: 'low' })); // → fast (cheap tier)
-  assert.ok((cheap.refineToSave ?? 0) > 0, 'cheap tier shows savings vs frontier default');
-  const frontier = estimateCost(rec({ complexity: 'complex', risk: 'high' })); // → thorough (frontier)
-  assert.equal(frontier.refineToSave, undefined, 'no savings when already frontier');
+test('persona settings scale output: thorough > fast on identical measurements', () => {
+  const m = meas();
+  const fast = estimateCost({ measurements: m, model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const thorough = estimateCost({ measurements: m, model: MODEL, persona: persona('thorough'), priors: DEFAULT_PRIORS });
+  assert.ok(thorough.high > fast.high, 'high reasoning + verbose costs more output');
 });
 
-test('token counters are monotonic in content', () => {
-  const empty = countInputTokens(rec({ rawInput: '' }));
-  const full = countInputTokens(rec({ rawInput: 'a much longer raw input string here' }));
-  assert.ok(full > empty);
-  const c: Complexity = 'complex';
-  assert.ok(estimateOutputTokens(rec({ complexity: c })) > estimateOutputTokens(rec({ complexity: 'trivial' })));
+test('overflow trips when the working memory exceeds the context window', () => {
+  const est = estimateCost({ measurements: meas({ inputTokens: MODEL.contextWindow + 1 }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  assert.equal(est.overflow, true);
 });
 
-test('estimateCost is pure — same record, same estimate', () => {
-  const r = rec({ complexity: 'moderate', risk: 'medium' });
-  assert.deepEqual(estimateCost(r), estimateCost(r));
+test('caching discount lowers the input cost', () => {
+  const cached: CostModel = { ...MODEL, cacheDiscount: 0.5 };
+  const base = estimateCost({ measurements: meas(), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const disc = estimateCost({ measurements: meas(), model: cached, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  assert.ok(disc.low < base.low);
+});
+
+test('output is capped at the model max_output', () => {
+  const tiny: CostModel = { ...MODEL, maxOutput: 500 };
+  const est = estimateCost({ measurements: meas({ complexity: 'complex' }), model: tiny, persona: persona('thorough'), priors: DEFAULT_PRIORS });
+  // 500 out tok cap → cost.high = (in*priceIn + 500*priceOut)/1e6
+  const expectedHigh = ((1500) * tiny.priceIn + 500 * tiny.priceOut) / 1e6;
+  assert.ok(Math.abs(est.high - Math.round(expectedHigh * 10000) / 10000) < 1e-6);
+});
+
+test('recommendPersona right-sizes: trivial+low→fast, complex/high→thorough', () => {
+  assert.equal(recommendPersona('low', 'trivial', DEFAULT_PERSONAS).name, 'fast');
+  assert.equal(recommendPersona('medium', 'complex', DEFAULT_PERSONAS).name, 'thorough');
+  assert.equal(recommendPersona('high', 'moderate', DEFAULT_PERSONAS).name, 'thorough');
+  assert.equal(recommendPersona('medium', 'moderate', DEFAULT_PERSONAS).name, 'balanced');
+});
+
+test('advise picks a persona, bands the cost, and shows refine-to-save for non-trivial', () => {
+  const est = advise(meas({ complexity: 'moderate', risk: 'medium' }), defaultCatalog());
+  assert.equal(est.persona, 'balanced');
+  assert.ok(est.low < est.high);
+  assert.ok((est.refineToSave ?? 0) > 0, 'tightening moderate→trivial saves something');
+});
+
+test('advise: a trivial low-risk intent has no refine-to-save (already tightest)', () => {
+  const est = advise(meas({ complexity: 'trivial', risk: 'low' }), defaultCatalog());
+  assert.equal(est.persona, 'fast');
+  assert.equal(est.refineToSave, undefined);
+});
+
+test('estimateCost is pure — same inputs, same output', () => {
+  const inputs = { measurements: meas(), model: MODEL, persona: persona('balanced'), priors: DEFAULT_PRIORS };
+  assert.deepEqual(estimateCost(inputs), estimateCost(inputs));
 });

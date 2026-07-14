@@ -60,6 +60,8 @@ export interface CostEstimate {
   persona: string;
   assumptions: string[];
   refineToSave?: number;
+  /** Working memory exceeds the model's context window → recommend compress/RAG (§5.1). */
+  overflow?: boolean;
 }
 
 // ── Schema (§3.8 layered: spine · template · emergent) ───────────────────────
