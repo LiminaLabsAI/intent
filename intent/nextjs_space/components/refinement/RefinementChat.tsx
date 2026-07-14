@@ -59,6 +59,7 @@ export default function RefinementChat() {
   const [awaitingOutcome, setAwaitingOutcome] = useState(false);
   const [building, setBuilding] = useState(false);
   const [fileView, setFileView] = useState<{ name: string; content: string } | null>(null);
+  const [showUnderstanding, setShowUnderstanding] = useState(true);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -268,6 +269,7 @@ export default function RefinementChat() {
   }
 
   const r = view ? READINESS[view.readiness.readiness] : null;
+  const modeLabel = view?.personas?.find((p) => p.name === view.selectedPersona)?.label ?? view?.selectedPersona ?? null;
   const graphData = view ? {
     topics: (view.record.slots["entities"]?.value || "").split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 6).map((n, i) => ({ topic: { id: "e" + i, name: n } })),
     contexts: (view.record.slots["context"]?.value || "").split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 4).map((n, i) => ({ context: { id: "c" + i, name: n } })),
@@ -280,12 +282,26 @@ export default function RefinementChat() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Intent Studio</h1>
           <p className="text-sm text-gray-500 mt-0.5">Describe what you want — the agent drives it to a governed, execution-ready record.</p>
         </div>
-        {r && <span className={`text-sm px-3 py-1 rounded-full border ${r.cls}`}>{r.label}</span>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full overflow-hidden">
         {/* Chat */}
         <div className="flex flex-col h-full overflow-hidden bg-white shadow-sm border border-gray-200 rounded-2xl">
+          {/* Status · mode · cost — next to the conversation + Build (not in Artifacts) */}
+          {view && (
+            <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-gray-100 text-xs shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {r && <span className={`px-2 py-0.5 rounded-full border ${r.cls}`}>{r.label}</span>}
+                {modeLabel && <span className="text-gray-500 truncate capitalize">{modeLabel} mode</span>}
+              </div>
+              {view.cost && (
+                <span className="font-mono text-gray-600 shrink-0">
+                  ${view.cost.low.toFixed(3)}–${view.cost.high.toFixed(3)}
+                  {view.record.built && typeof view.record.actualCost === "number" && <span className="text-emerald-600"> · ${view.record.actualCost.toFixed(5)}</span>}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             {messages.length === 0 && (
               <div className="text-gray-400 text-sm mt-10 text-center">
@@ -294,7 +310,7 @@ export default function RefinementChat() {
             )}
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
-                <div className={`inline-block px-4 py-2 rounded-2xl max-w-[85%] text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>{m.content}</div>
+                <div className={`inline-block px-4 py-2 rounded-2xl max-w-[85%] text-sm ${m.role === "user" ? "bg-indigo-600 text-white whitespace-pre-wrap" : "bg-gray-100 text-gray-800 text-left prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-headings:my-1"}`}>{m.role === "agent" ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown> : m.content}</div>
               </div>
             ))}
             {loading && <div className="text-left"><div className="inline-block px-4 py-2 rounded-2xl bg-gray-100 text-gray-400 text-sm">thinking…</div></div>}
@@ -356,43 +372,41 @@ export default function RefinementChat() {
           </div>
         </div>
 
-        {/* Record panel */}
-        <div className="flex flex-col h-full gap-3 overflow-y-auto hidden lg:flex">
-          <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        {/* Right column — Artifacts and Graph scroll independently */}
+        <div className="flex flex-col h-full gap-3 overflow-hidden hidden lg:flex">
+          <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
               <div>
                 <h2 className="font-semibold text-gray-800">Artifacts</h2>
-                {view?.selectedPersona && <p className="text-xs text-gray-500 capitalize">{view.personas?.find((p) => p.name === view.selectedPersona)?.label ?? view.selectedPersona} mode</p>}
+                <p className="text-xs text-gray-400">the deliverable + the understanding behind it</p>
               </div>
               {view?.record.built && (
                 <button onClick={exportMd} title="Export understanding as markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>
               )}
             </div>
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-2 flex-1 min-h-0 overflow-y-auto">
               {!view && <p className="text-gray-400 text-sm p-3">No intent yet — send a message to begin.</p>}
               {view && (
                 <>
-                  <div className="flex items-center gap-2 px-1">
-                    <div className="text-xs text-gray-500">{view.readiness.requiredStrong}/{view.readiness.required} required slots strong</div>
-                    {view.record.risk && <span className="text-[10px] uppercase tracking-wide text-gray-400">· {view.record.risk} risk{view.record.complexity ? ` · ${view.record.complexity}` : ""}</span>}
-                  </div>
-                  {view.cost && (
-                    <div className="border border-indigo-100 bg-indigo-50/50 rounded-lg p-2.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-indigo-900 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> Est. execution cost</span>
-                        <span className="font-mono text-indigo-800">${view.cost.low.toFixed(3)}–${view.cost.high.toFixed(3)}</span>
-                      </div>
-                      <div className="mt-1 text-indigo-700/80">Suggested persona: <span className="font-medium capitalize">{view.cost.persona}</span>{typeof view.cost.refineToSave === "number" && view.cost.refineToSave > 0 && <> · refining saves ~<span className="font-mono">${view.cost.refineToSave.toFixed(3)}</span> vs a frontier default</>}</div>
-                      {view.cost.overflow && <div className="mt-1 text-[11px] text-amber-700">⚠ working memory exceeds the model's context window — will need compression or RAG</div>}
-                      <div className="mt-1 text-[10px] text-indigo-400 leading-snug">{view.cost.assumptions.join(" · ")}</div>
-                      {view.record.built && typeof view.record.actualCost === "number" && (
-                        <div className="mt-1.5 pt-1.5 border-t border-indigo-100 text-emerald-700 font-medium">Actual (measured on build): <span className="font-mono">${view.record.actualCost.toFixed(5)}</span></div>
-                      )}
-                    </div>
+                  {/* Files — the built deliverable, primary (ADR-0002 amendment) */}
+                  {view.record.files && view.record.files.length > 0 ? (
+                    <>
+                      <div className="text-[11px] text-gray-400 px-1 flex items-center gap-1"><Download className="w-3 h-3" /> Files · OKF</div>
+                      {view.record.files.map((f) => (
+                        <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
+                          <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
+                          <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-400 px-1 py-1.5">Files appear here once you Build.</div>
                   )}
-                  {/* Understanding — the intent taking shape, live (ADR-0002 amendment) */}
-                  <div className="text-[11px] text-gray-400 px-1 pt-1 flex items-center gap-1"><Cpu className="w-3 h-3" /> Understanding · updates live</div>
-                  {view.schema.map((s) => {
+                  {/* Understanding — collapsible; fills live during clarify */}
+                  <button onClick={() => setShowUnderstanding((v) => !v)} className="w-full flex items-center gap-1 text-[11px] text-gray-400 px-1 pt-2 hover:text-gray-600">
+                    <span className={showUnderstanding ? "inline-block" : "-rotate-90 inline-block"}>▾</span> Understanding · {view.readiness.requiredStrong}/{view.readiness.required} strong · updates live
+                  </button>
+                  {showUnderstanding && view.schema.map((s) => {
                     const slot = view.record.slots[s.key];
                     const state: SlotState = slot?.state ?? "empty";
                     const isEditing = editing?.key === s.key;
@@ -423,25 +437,13 @@ export default function RefinementChat() {
                       </div>
                     );
                   })}
-                  {/* Files — the built deliverable, OKF markdown (ADR-0002 amendment) */}
-                  {view.record.files && view.record.files.length > 0 && (
-                    <>
-                      <div className="text-[11px] text-gray-400 px-1 pt-2 flex items-center gap-1"><Download className="w-3 h-3" /> Files · from Build (OKF)</div>
-                      {view.record.files.map((f) => (
-                        <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
-                          <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
-                          <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
-                        </div>
-                      ))}
-                    </>
-                  )}
                 </>
               )}
             </div>
           </div>
 
           {view?.record.built && graphData && (graphData.topics.length > 0 || graphData.contexts.length > 0) && (
-            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl min-h-[220px]">
+            <div className="bg-white shadow-sm border border-gray-200 rounded-2xl h-[260px] shrink-0 overflow-hidden">
               <MiniGraph intentData={graphData} />
             </div>
           )}

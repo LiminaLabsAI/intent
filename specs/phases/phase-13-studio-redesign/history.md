@@ -8,6 +8,14 @@ Detail: Plain-language schema labels (entities → "What's involved", acceptance
 
 ---
 
+### [NOTE] 2026-07-15 — UI refinement from live feedback
+Topics: ui, ux, layout, formatting
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: Live review surfaced misses: status·mode·cost were still in Artifacts (and "Suggested persona" showed after selection), the two right panels shared one scroll, and Files were buried under the tall Understanding list. Fixed: status · mode · cost (est→actual) moved to a bar at the top of the conversation column (next to Build), out of Artifacts (top-right badge removed; FEAT-004 resolved); Artifacts now shows Files first (primary) with Understanding collapsible below; Artifacts and the graph scroll independently (Artifacts flex-1 internal scroll, graph fixed 260px); agent messages render as markdown for readability. tsc 0, 73/73.
+
+---
+
 ### [EVALUATOR] 2026-07-15 — Phase 13 verified (Groups 1–4)
 Topics: verification, ask-to-enrich, okf, ui
 Affects-phases: phase-13-studio-redesign
