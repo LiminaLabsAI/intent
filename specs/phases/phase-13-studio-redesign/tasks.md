@@ -31,7 +31,8 @@
 - [x] Commit `feat(studio): Understanding/Artifacts split + always-on build + files`
 
 ## Group 4 — Verification
-- [ ] Unit: persona rename · OKF render · plan_built files · outcome-drives-files
-- [ ] Live: ask-to-enrich → outcome asked → live fields → always-on Build → OKF files by outcome + graph + actual cost; mode visible
-- [ ] Full suite green
-- [ ] Commit `test(studio-redesign): verified`
+- [x] Unit: persona rename · OKF render · plan_built files (1 + multi) · outcome gate · ask-to-enrich (73/73)
+- [x] Live backend (DeepSeek, G0–G2): intent → Quick/Balanced/Deep-dive → outcome detected ("just a plan"→plan) → Build → **plan.md (OKF front-matter)** + actual cost **$0.00017** (real DeepInfra pricing)
+- [x] `/refine` server-compiles clean (no build error); tsc 0
+- [~] Browser click-through of the new UI (live Understanding, always-on Build, Files view/download, mode badge) — auth-gated → user confirms; `ask_outcome` gate live re-verify (was stale-compiled) → filed as follow-up
+- [x] Commit `test(studio-redesign): verified`

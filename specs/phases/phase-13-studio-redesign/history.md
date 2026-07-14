@@ -8,6 +8,14 @@ Detail: Plain-language schema labels (entities → "What's involved", acceptance
 
 ---
 
+### [EVALUATOR] 2026-07-15 — Phase 13 verified (Groups 1–4)
+Topics: verification, ask-to-enrich, okf, ui
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: G1 — ask-to-enrich (verify → grounded question) + outcome gate (ask_outcome; perceive detects outcome→outcome_set). G2 — build writes OKF files by outcome (okf.ts + runBuild → plan_built). G3 — Understanding un-gated (live), panel → "Artifacts" + mode badge, Build in-conversation always-on status-coloured, outcome chips, Files (view+download), PRD/Plan removed. G4 — 73/73, tsc 0; live backend on DeepSeek: Quick/Balanced/Deep-dive, outcome detected ("just a plan"→plan), Build → plan.md with OKF front-matter + actual cost $0.00017 (real DeepInfra pricing). Deferred: top-strip relocation (FEAT-004), ask_outcome live re-verify (BUG-002, Next-dev stale-lib), browser click-through (auth-gated → user).
+
+---
+
 ### [DECISION] 2026-07-15 — Ask-to-enrich replaces assume-then-verify
 Topics: agent-behavior, clarify, hallucination
 Affects-phases: phase-13-studio-redesign
