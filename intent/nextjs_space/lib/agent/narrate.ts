@@ -6,7 +6,7 @@
  * The conversation is the narration of a chosen move, not a separate channel.
  */
 
-import type { IntentRecord } from './types.ts';
+import type { ChatTurn, IntentRecord } from './types.ts';
 import type { LLM } from './llm.ts';
 import type { Move } from './decide.ts';
 import { resolveSchema } from './schema.ts';
@@ -32,13 +32,22 @@ function moveLine(record: IntentRecord, m: Move): string {
   return `- move: ${m.kind}, about "${def?.label ?? m.slot}" (${def?.describe}); so far: ${current}${vague}${guide}`;
 }
 
-export async function narrate(record: IntentRecord, moves: Move[], llm: LLM): Promise<string> {
+export async function narrate(
+  record: IntentRecord,
+  moves: Move[],
+  llm: LLM,
+  opts: { history?: ChatTurn[] } = {},
+): Promise<string> {
   if (moves.length === 0) return 'Everything I need is captured for now.';
-  const user = `Intent type: ${record.intentType ?? 'unclassified'}
-Objective: ${record.slots['objective']?.value ?? '(empty)'}
-Chosen move(s):
-${moves.map((m) => moveLine(record, m)).join('\n')}
-
-Write the reply.`;
+  const convo = (opts.history ?? [])
+    .slice(-6)
+    .map((t) => `${t.role === 'agent' ? 'You' : 'User'}: ${t.content}`)
+    .join('\n');
+  const user =
+    (convo ? `Recent conversation (most recent last):\n${convo}\n\n` : '') +
+    `Intent type: ${record.intentType ?? 'unclassified'}\n` +
+    `Objective so far: ${record.slots['objective']?.value ?? '(empty)'}\n` +
+    `Your move now:\n${moves.map((m) => moveLine(record, m)).join('\n')}\n\n` +
+    `Write the reply. If the user just gave new information, open with a few words that reflect THEIR actual words back (never a canned phrase, never the same opener twice) — then do your move as one short question. If you have asked about this slot before, rephrase it and add a concrete example; never repeat a question word-for-word. If they gave nothing new, skip the acknowledgment.`;
   return llm.generateText(SYSTEM, user);
 }

@@ -6,7 +6,7 @@
  * and move-selection are code, the LLM only perceives and phrases.
  */
 
-import type { Risk } from './types.ts';
+import type { ChatTurn, Risk } from './types.ts';
 import type { IntentEventStore } from './store.ts';
 import type { LLM } from './llm.ts';
 import type { Move } from './decide.ts';
@@ -27,11 +27,12 @@ export async function runTurn(
   id: string,
   message: string,
   llm: LLM,
-  opts: { risk?: Risk; at?: string; by?: string } = {},
+  opts: { risk?: Risk; at?: string; by?: string; history?: ChatTurn[] } = {},
 ): Promise<TurnResult> {
   const risk = opts.risk ?? 'medium';
   const at = opts.at ?? new Date().toISOString();
   const by = opts.by ?? 'user';
+  const history = opts.history ?? [];
 
   // ensure the record exists (born at message one)
   let record = await store.load(id);
@@ -40,12 +41,12 @@ export async function runTurn(
   }
 
   // PERCEIVE (LLM) → events → apply
-  const events = await perceive(record, message, llm, { at });
+  const events = await perceive(record, message, llm, { at, history });
   for (const e of events) record = await store.append(id, e);
 
   // DECIDE (pure) → NARRATE (LLM)
   const moves = decide(record, risk);
-  const reply = await narrate(record, moves, llm);
+  const reply = await narrate(record, moves, llm, { history });
 
   const view = await materializeRecord(store, id, risk);
   return { view: view!, moves, reply };

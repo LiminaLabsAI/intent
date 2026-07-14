@@ -16,8 +16,9 @@ export async function POST(req: NextRequest) {
     }
     const id: string = typeof body?.id === 'string' && body.id ? body.id : genId();
     const risk = body?.risk;
+    const history = Array.isArray(body?.history) ? body.history.slice(-8) : undefined;
     const store = await getStore();
-    const result = await runTurn(store, id, message, getLLM(), { risk });
+    const result = await runTurn(store, id, message, getLLM(), { risk, history });
     return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

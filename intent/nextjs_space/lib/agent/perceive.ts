@@ -8,7 +8,7 @@
  * Returns the events to append. Slots not in the schema become emergent slots.
  */
 
-import type { IntentEvent, IntentRecord, IntentType, SlotState } from './types.ts';
+import type { ChatTurn, IntentEvent, IntentRecord, IntentType, SlotState } from './types.ts';
 import type { LLM } from './llm.ts';
 import { resolveSchema } from './schema.ts';
 
@@ -53,12 +53,19 @@ export async function perceive(
   record: IntentRecord,
   message: string,
   llm: LLM,
-  opts: { at?: string } = {},
+  opts: { at?: string; history?: ChatTurn[] } = {},
 ): Promise<IntentEvent[]> {
   const at = opts.at ?? new Date().toISOString();
+  const convo = (opts.history ?? [])
+    .slice(-6)
+    .map((t) => `${t.role === 'agent' ? 'Agent' : 'User'}: ${t.content}`)
+    .join('\n');
   const out = await llm.generateStructured<PerceptionOut>(
     system(record.intentType),
-    `Current record:\n${recordSummary(record)}\n\nUser message: "${message}"`,
+    `Current record:\n${recordSummary(record)}\n\n` +
+      (convo ? `Recent conversation:\n${convo}\n\n` : '') +
+      `User's latest message: "${message}"\n\n` +
+      `The latest message is usually the answer to the agent's last question — read it in that light and fold it into the right slot even if it is short or informal.`,
   );
 
   const events: IntentEvent[] = [];

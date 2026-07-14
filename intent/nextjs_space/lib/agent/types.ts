@@ -97,6 +97,12 @@ export type IntentEvent =
 
 export type EventKind = IntentEvent['kind'];
 
+/** A conversational turn — recent history passed to Perceive/Narrate for context. */
+export interface ChatTurn {
+  role: 'user' | 'agent';
+  content: string;
+}
+
 // ── Materialized record ──────────────────────────────────────────────────────
 /** The current-state view, derived deterministically by replaying the event log. */
 export interface IntentRecord {

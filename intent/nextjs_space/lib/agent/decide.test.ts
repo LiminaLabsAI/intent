@@ -39,9 +39,19 @@ test('all required strong → close', () => {
   assert.equal(decide(allRequiredStrong('CHANGE', 'medium'), 'medium')[0].kind, 'close');
 });
 
-test('gap state maps to move: weak→ask (elicit specifics), ambiguous→disambiguate', () => {
-  assert.equal(decide(rec('CHANGE', { objective: slot('objective', 'weak') }))[0].kind, 'ask');
-  assert.equal(decide(rec('CHANGE', { objective: slot('objective', 'ambiguous') }))[0].kind, 'disambiguate');
+test('gap state maps to move when it is the only gap: weak→ask, ambiguous→disambiguate', () => {
+  const base = allRequiredStrong('CHANGE', 'medium');
+  const withObj = (st: SlotState) => ({ ...base, slots: { ...base.slots, objective: slot('objective', st) } });
+  assert.equal(decide(withObj('weak'))[0].kind, 'ask');
+  assert.equal(decide(withObj('weak'))[0].slot, 'objective');
+  assert.equal(decide(withObj('ambiguous'))[0].kind, 'disambiguate');
+});
+
+test('breadth before depth: an empty slot is asked before re-deepening a weak one', () => {
+  const r = rec('CHANGE', { objective: slot('objective', 'weak') }); // objective weak, rest empty
+  const m = decide(r);
+  assert.equal(m[0].kind, 'ask');
+  assert.notEqual(m[0].slot, 'objective');
 });
 
 test('never returns more than one move (MVP — not a barrage)', () => {

@@ -35,6 +35,7 @@ export default function StudioPage() {
   async function send() {
     const message = input.trim();
     if (!message || loading) return;
+    const history = messages; // conversation so far (before this turn) — for agent memory
     setInput('');
     setError(null);
     setMessages((m) => [...m, { role: 'user', content: message }]);
@@ -43,7 +44,7 @@ export default function StudioPage() {
       const res = await fetch('/api/agent/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, message }),
+        body: JSON.stringify({ id, message, history }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'turn failed');

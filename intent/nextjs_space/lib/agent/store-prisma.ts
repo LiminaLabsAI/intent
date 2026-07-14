@@ -28,7 +28,7 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 5, delayMs = 1000): Pr
     } catch (e) {
       lastErr = e;
       const msg = e instanceof Error ? e.message : String(e);
-      const transient = /can't reach database|P1001|P1017|ECONNREFUSED|ETIMEDOUT|timed out|connection/i.test(msg);
+      const transient = /can't reach database|p1001|p1017|p2024|p2002|econnrefused|etimedout|timed out|connection|unable to start a transaction|transaction api error/i.test(msg);
       if (!transient || i === tries - 1) throw e;
       await new Promise((r) => setTimeout(r, delayMs));
     }
@@ -38,26 +38,27 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 5, delayMs = 1000): Pr
 
 export class PrismaEventStore implements IntentEventStore {
   async append(id: string, event: IntentEvent): Promise<IntentRecord> {
-    return withRetry(() =>
-      prisma.$transaction(async (tx) => {
-        const rows = await tx.intentEvent.findMany({
-          where: { intentId: id },
-          orderBy: { seq: 'asc' },
-        });
-        const events = rowsToEvents(rows);
-        guardAppend(replay(id, events), event); // enforce lifecycle invariants
-        await tx.intentEvent.create({
-          data: {
-            intentId: id,
-            seq: rows.length,
-            kind: event.kind,
-            payload: event as unknown as object,
-            actor: event.by,
-          },
-        });
-        return replay(id, [...events, event]);
-      }),
-    );
+    // No interactive $transaction (flaky/slow on Neon serverless). Read-seq +
+    // insert; the @@unique([intentId, seq]) constraint catches the rare race and
+    // withRetry re-reads on P2002. Fine for the single-user Studio.
+    return withRetry(async () => {
+      const rows = await prisma.intentEvent.findMany({
+        where: { intentId: id },
+        orderBy: { seq: 'asc' },
+      });
+      const events = rowsToEvents(rows);
+      guardAppend(replay(id, events), event); // enforce lifecycle invariants
+      await prisma.intentEvent.create({
+        data: {
+          intentId: id,
+          seq: rows.length,
+          kind: event.kind,
+          payload: event as unknown as object,
+          actor: event.by,
+        },
+      });
+      return replay(id, [...events, event]);
+    });
   }
 
   async load(id: string): Promise<IntentRecord | null> {
