@@ -10,17 +10,7 @@ const hf = createOpenAI({
   apiKey: process.env.HF_TOKEN || '',
 });
 
-const ollama = createOpenAI({
-  baseURL: 'http://127.0.0.1:11434/v1',
-  apiKey: 'ollama', 
-});
-
-const getChatModel = () => {
-  if (process.env.NODE_ENV === 'development') {
-    return ollama('qwen2.5:1.5b');
-  }
-  return hf('deepseek-ai/DeepSeek-V4-Flash:novita');
-};
+const getChatModel = () => hf(process.env.AGENT_MODEL || 'Qwen/Qwen2.5-7B-Instruct');
 
 export async function POST(req: NextRequest) {
   try {

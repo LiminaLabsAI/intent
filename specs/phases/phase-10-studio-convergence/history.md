@@ -23,3 +23,11 @@ Affects-specs: specs/planning/roadmap.md
 Detail: This was flagged as a "Phase 9 follow-on" (full `/refine` re-point needs the auth+DB stack). Now promoted to Phase 10; the earlier roadmap's Precedent/Governance/Handoff/Flywheel shift to 11–14.
 
 ---
+
+### [NOTE] 2026-07-14 — Converged Studio browser-verified end to end
+Topics: verification, studio, auth
+Affects-phases: phase-10-studio-convergence
+Affects-specs: none
+Detail: Logged into `/refine` as john@doe.com (seeded ADMIN). A turn ("Set up SSO for our staff apps") classified CREATE, the agent asked a breadth-first scope question, the reply persisted in the chat, and the live record filled (slots · states · evidence · readiness 🔴 Vague · 1/5). Context Graph rendered from entities/context; MD export present; the intent appeared in sidebar history (bound to the Intent header row with requesterId). `/studio` redirects to `/refine`. Fixed one bug: `router.replace` after creating a new intent re-triggered the URL effect and wiped the transcript — guarded with `justCreatedRef`. Also fixed `/expand` model (was ollama, now HF Qwen).
+
+---
