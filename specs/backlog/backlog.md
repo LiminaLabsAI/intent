@@ -25,7 +25,7 @@ type: Backlog
 
 | ID | Title | Priority | Status | Phase | Detail |
 |----|-------|----------|--------|-------|--------|
-| BUG-001 | `/refine` UI is broken | P0 | open | Phase 1 | User reported the Refinement UI is broken. Needs diagnosis (styling/hydration/routing error) before proceeding. |
+| BUG-001 | `/refine` UI is broken | P0 | resolved | Phase 9–10 | Root cause: server component awaited Prisma + NextAuth at render. Fixed: guarded render (P9) + `/refine` converged onto the agent Studio (P10), browser-verified logged in. |
 
 ## Features
 
