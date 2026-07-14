@@ -253,21 +253,6 @@ export default function RefinementChat() {
     URL.revokeObjectURL(url);
   }
 
-  function exportMd() {
-    if (!view) return;
-    const r = view.record;
-    const lines = [`# ${r.slots["objective"]?.value || r.rawInput || "Intent"}`, ""];
-    for (const s of view.schema) {
-      const slot = r.slots[s.key];
-      if (slot?.value) lines.push(`## ${s.label}`, slot.value, "");
-    }
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "intent.md"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
   const r = view ? READINESS[view.readiness.readiness] : null;
   const modeLabel = view?.personas?.find((p) => p.name === view.selectedPersona)?.label ?? view?.selectedPersona ?? null;
   const graphData = view ? {
@@ -380,9 +365,6 @@ export default function RefinementChat() {
                 <h2 className="font-semibold text-gray-800">Artifacts</h2>
                 <p className="text-xs text-gray-400">the deliverable + the understanding behind it</p>
               </div>
-              {view?.record.built && (
-                <button onClick={exportMd} title="Export understanding as markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>
-              )}
             </div>
             <div className="p-3 space-y-2 flex-1 min-h-0 overflow-y-auto">
               {!view && <p className="text-gray-400 text-sm p-3">No intent yet — send a message to begin.</p>}

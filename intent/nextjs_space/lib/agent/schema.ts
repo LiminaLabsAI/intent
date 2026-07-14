@@ -40,7 +40,7 @@ export const SPINE_SLOTS: SlotDef[] = [
     requiredness: req('recommended', 'required', 'required'),
   },
   {
-    key: 'entities', label: "What's involved", layer: 'spine',
+    key: 'entities', label: 'Key items', layer: 'spine',
     describe: 'The specific things the intent touches.',
     rubric: 'Named specifically and resolvable to real assets; no dangling references.',
     requiredness: req('required', 'required', 'required'),
