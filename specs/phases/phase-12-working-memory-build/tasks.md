@@ -27,7 +27,8 @@
 - [x] Commit `feat(studio): build gate + actual-vs-estimate` — tsc clean, 71/71
 
 ## Group 4 — Verification
-- [ ] Unit: offer_build gate · built replay · runBuild actual-cost math
-- [ ] Live (DeepSeek): intent → pick → clarify (empty panel, 🔴→🟢, assumptions verified) → Build → materialize + actual vs estimate
-- [ ] Full suite green
-- [ ] Commit `test(build-flow): verified`
+- [x] Unit: offer_build gate · built replay · runBuild actual-cost math · verify move (71/71)
+- [x] Live (DeepSeek): intent → select_persona → balanced → **offer_build** (readiness ready, built:false) → **Build** → built:true, **actualCost $0.00011** (est $0.0004–$0.0011), 6 slots materialized; offer_build narration states assumptions + invites correction; thorough → 10 asks (right-sized)
+- [x] Full suite green (71/71, tsc 0)
+- [~] Browser-visual of `/refine` (panel hidden until build, Build button, actual line) — auth-gated → user confirms
+- [x] Commit `test(build-flow): verified`

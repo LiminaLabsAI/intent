@@ -40,6 +40,14 @@ Detail: G1 — `runBuild` (build.ts) composes the final working memory in one us
 
 ---
 
+### [EVALUATOR] 2026-07-15 — Phase 12 verified end-to-end (Groups 3–4)
+Topics: build-flow, verification, ui, actual-cost
+Affects-phases: phase-12-working-memory-build
+Affects-specs: none
+Detail: G3 — UI hides the working-memory panel/graph/artifacts until `record.built`; during clarify only readiness + cost estimate + a Build CTA are live; buildMemory() POSTs {build:true} and reveals the panel + adds the measured Actual cost. G4 — live on DeepSeek: intent → select_persona → balanced → offer_build (ready, not built) → Build → built:true, actualCost $0.00011 vs estimate $0.0004–$0.0011, 6 slots materialized; the offer_build narration states the agent's assumptions and invites correction before Build; thorough persona → 10 asks (right-sized, no premature assumptions). 71/71, tsc 0. Browser-visual left to the user (auth-gated).
+
+---
+
 ### [NOTE] 2026-07-15 — Phase 11 organically outgrew its spec; this phase captures the overflow
 Topics: phase-11, phase-12, planning
 Affects-phases: phase-12-working-memory-build
