@@ -16,7 +16,7 @@ test('first turn: classify → fold → decide → narrate (deterministic with F
   assert.equal(res.view.record.intentType, 'CHANGE');
   assert.equal(res.view.record.slots['objective'].state, 'weak');
   assert.equal(res.moves.length, 1);
-  assert.equal(res.moves[0].kind, 'infer_confirm');
+  assert.equal(res.moves[0].kind, 'ask');
   assert.equal(res.moves[0].slot, 'objective');
   assert.match(res.reply, /OAuth/);
 });

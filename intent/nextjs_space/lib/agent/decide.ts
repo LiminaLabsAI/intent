@@ -54,7 +54,9 @@ function priority(key: string): number {
 function moveForState(state: SlotState): MoveKind {
   switch (state) {
     case 'empty': return 'ask';
-    case 'weak': return 'infer_confirm';
+    // 'weak' → ask for specifics, NOT infer_confirm: a vague value can't be
+    // fixed by nodding at a restatement (that loops); we must elicit detail.
+    case 'weak': return 'ask';
     case 'ambiguous': return 'disambiguate';
     case 'conflicting': return 'surface_conflict';
     case 'strong': return 'ask'; // unreachable for a gap

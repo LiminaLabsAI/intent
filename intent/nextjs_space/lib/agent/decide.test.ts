@@ -39,8 +39,8 @@ test('all required strong → close', () => {
   assert.equal(decide(allRequiredStrong('CHANGE', 'medium'), 'medium')[0].kind, 'close');
 });
 
-test('gap state maps to move: weak→infer_confirm, ambiguous→disambiguate', () => {
-  assert.equal(decide(rec('CHANGE', { objective: slot('objective', 'weak') }))[0].kind, 'infer_confirm');
+test('gap state maps to move: weak→ask (elicit specifics), ambiguous→disambiguate', () => {
+  assert.equal(decide(rec('CHANGE', { objective: slot('objective', 'weak') }))[0].kind, 'ask');
   assert.equal(decide(rec('CHANGE', { objective: slot('objective', 'ambiguous') }))[0].kind, 'disambiguate');
 });
 
