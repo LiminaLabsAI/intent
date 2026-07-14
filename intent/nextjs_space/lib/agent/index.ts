@@ -4,7 +4,7 @@
  */
 
 export { getStore, getLLM } from './runtime.ts';
-export { runTurn } from './turn.ts';
+export { runTurn, runPersonaSelection } from './turn.ts';
 export type { TurnResult } from './turn.ts';
 export { materializeRecord } from './materialize.ts';
 export type { RecordView, SlotSummary } from './materialize.ts';

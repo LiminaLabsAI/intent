@@ -16,9 +16,11 @@ import type { IntentEventStore } from './store.ts';
 import type { ReadinessReport } from './strength.ts';
 import { assessReadiness } from './strength.ts';
 import { resolveSchema, requirednessOf } from './schema.ts';
-import { advise } from './cost.ts';
+import { advise, personaOptions } from './cost.ts';
+import type { PersonaOption } from './cost.ts';
 import { measure } from './measure.ts';
 import { loadCatalog } from './cost-catalog.ts';
+import { personaToRigor } from './cost-config.ts';
 
 export interface SlotSummary {
   key: string;
@@ -35,6 +37,10 @@ export interface RecordView {
   schema: SlotSummary[];
   /** Pre-execution cost advisory (§5.2) — a directional band, not a bill. */
   cost: CostEstimate;
+  /** The selectable modes for the in-conversation picker (§5.2 choice UX). */
+  personas: PersonaOption[];
+  /** The mode the user has chosen (null until they pick). */
+  selectedPersona: string | null;
 }
 
 export async function materializeRecord(
@@ -45,15 +51,20 @@ export async function materializeRecord(
   const record = await store.load(id);
   if (!record) return null;
   const risk: Risk = riskOverride ?? record.risk ?? 'medium';
-  const readiness = assessReadiness(record, risk);
+  // Once the user picks a mode, IT drives refinement rigor (overriding auto-risk).
+  const rigor: Risk = personaToRigor(record.persona) ?? risk;
+  const readiness = assessReadiness(record, rigor);
   const schema: SlotSummary[] = resolveSchema(record.intentType).map((d) => ({
     key: d.key,
     label: d.label,
     layer: d.layer,
-    requiredness: requirednessOf(d, risk),
+    requiredness: requirednessOf(d, rigor),
     describe: d.describe,
   }));
-  // Cost uses the SAME resolved risk as readiness (persona pick must agree with sizing).
-  const cost = advise({ ...measure(record), risk }, await loadCatalog());
-  return { record, readiness, schema, cost };
+  const catalog = await loadCatalog();
+  const m = { ...measure(record), risk };
+  // Cost reflects the SELECTED mode if picked, else the recommended one.
+  const cost = advise(m, catalog, record.persona ?? undefined);
+  const personas = personaOptions(m, catalog);
+  return { record, readiness, schema, cost, personas, selectedPersona: record.persona };
 }

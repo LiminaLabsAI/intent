@@ -90,6 +90,34 @@ function daysSince(iso: string): number | null {
   return d >= 0 ? d : null;
 }
 
+/** One selectable mode in the in-conversation persona picker (§5.2 choice UX). */
+export interface PersonaOption {
+  id: string;
+  name: string;
+  low: number;
+  high: number;
+  currency: string;
+  reasoningDepth: string;
+  promptStyle: string;
+  recommended: boolean;
+}
+
+/** Every persona's cost band for THIS record + which one the sizing recommends. PURE. */
+export function personaOptions(
+  measurements: Measurements,
+  catalog: { models: CostModel[]; personas: Persona[]; priors: EstimationPrior[] },
+): PersonaOption[] {
+  const rec = recommendPersona(measurements.risk, measurements.complexity, catalog.personas).name;
+  return catalog.personas.map((p) => {
+    const model = catalog.models.find((mo) => mo.id === p.modelRef) ?? catalog.models[0];
+    const est = estimateCost({ measurements, model, persona: p, priors: catalog.priors });
+    return {
+      id: p.id, name: p.name, low: est.low, high: est.high, currency: est.currency,
+      reasoningDepth: p.reasoningDepth, promptStyle: p.promptStyle, recommended: p.name === rec,
+    };
+  });
+}
+
 const COMPLEXITY_ORDER: Complexity[] = ['trivial', 'moderate', 'complex'];
 
 /** Pick the right-sized persona for the intent (budget-aware). PURE. */
@@ -110,8 +138,11 @@ export function recommendPersona(risk: Risk, complexity: Complexity, personas: P
 export function advise(
   measurements: Measurements,
   catalog: { models: CostModel[]; personas: Persona[]; priors: EstimationPrior[] },
+  personaName?: string,
 ): CostEstimate {
-  const persona = recommendPersona(measurements.risk, measurements.complexity, catalog.personas);
+  const persona =
+    (personaName ? catalog.personas.find((p) => p.name === personaName) : undefined) ??
+    recommendPersona(measurements.risk, measurements.complexity, catalog.personas);
   const model = catalog.models.find((mo) => mo.id === persona.modelRef) ?? catalog.models[0];
   const est = estimateCost({ measurements, model, persona, priors: catalog.priors });
 

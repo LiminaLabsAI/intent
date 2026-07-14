@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
-import { getStore, getLLM, runTurn } from '@/lib/agent';
+import { getStore, getLLM, runTurn, runPersonaSelection } from '@/lib/agent';
 import { createIntentHeader, isHeaderBound, syncIntentHeader, saveTranscript } from '@/lib/agent/intent-header.ts';
 import type { ChatTurn } from '@/lib/agent/types.ts';
 
@@ -14,13 +14,36 @@ function genId(): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const risk = body?.risk;
+    const historyFull: ChatTurn[] = Array.isArray(body?.history) ? body.history : [];
+    const history = historyFull.slice(-8); // last 8 turns is enough LLM context
+    const personaSelection = typeof body?.personaSelection === 'string' && body.personaSelection ? body.personaSelection : undefined;
+    const store = await getStore();
+
+    // ── Persona-selection turn (§5.2 choice UX): the user picked a mode ──────────
+    if (personaSelection) {
+      const id = typeof body?.id === 'string' && body.id ? body.id : undefined;
+      if (!id) return NextResponse.json({ error: 'id is required to select a mode' }, { status: 400 });
+      const result = await runPersonaSelection(store, id, personaSelection, getLLM(), { history });
+      if (isHeaderBound(id)) {
+        const transcript: ChatTurn[] = [
+          ...historyFull,
+          { role: 'user', content: `Selected the ${personaSelection} mode.` },
+          { role: 'agent', content: result.reply },
+        ];
+        await Promise.all([
+          syncIntentHeader(id, result.view).catch(() => {}),
+          saveTranscript(id, transcript).catch(() => {}),
+        ]);
+      }
+      return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
+    }
+
+    // ── Normal message turn ─────────────────────────────────────────────────────
     const message: unknown = body?.message;
     if (typeof message !== 'string' || !message.trim()) {
       return NextResponse.json({ error: 'message (non-empty string) is required' }, { status: 400 });
     }
-    const risk = body?.risk;
-    const historyFull: ChatTurn[] = Array.isArray(body?.history) ? body.history : [];
-    const history = historyFull.slice(-8); // last 8 turns is enough LLM context
 
     // Resolve the record id. New intent + a logged-in user → create an Intent
     // header row bound to the requester; otherwise fall back to an anonymous id.
@@ -31,7 +54,6 @@ export async function POST(req: NextRequest) {
       id = requesterId ? await createIntentHeader(requesterId, message) : genId();
     }
 
-    const store = await getStore();
     const result = await runTurn(store, id, message, getLLM(), { risk, history });
 
     if (isHeaderBound(id)) {

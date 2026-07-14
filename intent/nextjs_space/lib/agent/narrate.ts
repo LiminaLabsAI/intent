@@ -25,6 +25,7 @@ Single moves:
 - infer_confirm: propose a sharper version and ask them to confirm ("I read this as X — is that right?").
 - disambiguate: point out the two possible readings and ask which they mean.
 - surface_conflict: name the contradiction and ask them to choose.
+- select_persona: in ONE short sentence, ask the user how thorough they'd like you to be before you dig in, and say the options are shown below (a quick/fast pass, a balanced one, or a deep/thorough one). Do NOT list slots or ask anything else — the buttons are rendered separately.
 - close: say it's ready, briefly restate the objective, and offer to hand it off.
 - handoff_complete: the intent is finalized and handed off to the team/executor. Confirm it warmly in one line and STOP — do not ask anything further, do not re-list slots, do not re-offer.
 - governance_stop: gently say it looks outside work scope and offer to flag it for a human.`;

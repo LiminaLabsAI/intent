@@ -4,8 +4,10 @@ import { decide, governanceStop } from './decide.ts';
 import { resolveSchema, requirednessOf } from './schema.ts';
 import type { IntentRecord, IntentType, Risk, Slot, SlotState } from './types.ts';
 
-function rec(intentType: IntentType | null, slots: Record<string, Slot> = {}, rawInput = 'do a thing'): IntentRecord {
-  return { id: 'x', version: 0, rawInput, intentType, state: 'DRAFT', slots };
+// persona defaults to 'balanced' (→ medium rigor) so tests exercise refinement,
+// not the persona gate; pass null to test the gate itself.
+function rec(intentType: IntentType | null, slots: Record<string, Slot> = {}, rawInput = 'do a thing', persona: string | null = 'balanced'): IntentRecord {
+  return { id: 'x', version: 0, rawInput, intentType, persona, state: 'DRAFT', slots } as IntentRecord;
 }
 function slot(key: string, state: SlotState): Slot {
   return { key, value: state === 'empty' ? null : 'a sufficiently long value', state };
@@ -15,6 +17,20 @@ function allRequiredStrong(type: IntentType, risk: Risk): IntentRecord {
   for (const d of resolveSchema(type)) if (requirednessOf(d, risk) === 'required') slots[d.key] = slot(d.key, 'strong');
   return rec(type, slots);
 }
+
+test('persona gate: a classified intent with no chosen mode → select_persona, nothing else', () => {
+  const m = decide(rec('CHANGE', {}, 'migrate auth to OAuth', null));
+  assert.equal(m.length, 1);
+  assert.equal(m[0].kind, 'select_persona');
+});
+
+test('after a mode is chosen, refinement proceeds; thorough demands >= fast', () => {
+  const fast = decide(rec('CHANGE', {}, 'x', 'fast'));
+  const thorough = decide(rec('CHANGE', {}, 'x', 'thorough'));
+  assert.notEqual(fast[0].kind, 'select_persona');
+  assert.notEqual(thorough[0].kind, 'select_persona');
+  assert.ok(thorough.length >= fast.length, 'higher rigor requires at least as many slots');
+});
 
 test('governance-stop pre-empts everything', () => {
   const m = decide(rec('CHANGE', {}, 'plan my grocery shopping'));

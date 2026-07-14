@@ -12,12 +12,22 @@ type SlotState = "empty" | "weak" | "ambiguous" | "conflicting" | "strong";
 interface Slot { key: string; value: string | null; state: SlotState; reason?: string; inferred?: boolean }
 interface SlotSummary { key: string; label: string; layer: string; requiredness: string; describe: string }
 interface CostEstimate { low: number; high: number; currency: string; persona: string; assumptions: string[]; refineToSave?: number; overflow?: boolean }
+interface PersonaOption { id: string; name: string; low: number; high: number; currency: string; reasoningDepth: string; promptStyle: string; recommended: boolean }
+interface Move { kind: string; slot?: string }
 interface View {
-  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; slots: Record<string, Slot> };
+  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; persona?: string | null; slots: Record<string, Slot> };
   readiness: { readiness: "vague" | "actionable" | "ready"; required: number; requiredStrong: number; conflicts: string[] };
   schema: SlotSummary[];
   cost?: CostEstimate;
+  personas?: PersonaOption[];
+  selectedPersona?: string | null;
 }
+
+const PERSONA_BLURB: Record<string, string> = {
+  fast: "Quick pass — light refinement, cheapest run",
+  balanced: "Balanced — standard rigor and cost",
+  thorough: "Deep dive — most rigorous, premium run",
+};
 
 const STATE_COLOR: Record<SlotState, string> = {
   empty: "bg-gray-300", weak: "bg-amber-400", ambiguous: "bg-orange-500", conflicting: "bg-red-500", strong: "bg-emerald-500",
@@ -38,6 +48,7 @@ export default function RefinementChat() {
   const [expanding, setExpanding] = useState<"PRD" | "PLAN" | null>(null);
   const [artifacts, setArtifacts] = useState<{ PRD?: string; PLAN?: string }>({});
   const [drawer, setDrawer] = useState<"PRD" | "PLAN" | null>(null);
+  const [awaitingPersona, setAwaitingPersona] = useState(false);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -70,6 +81,8 @@ export default function RefinementChat() {
       const transcript = Array.isArray(d?.transcript) ? (d.transcript as Msg[]) : null;
       if (transcript && transcript.length) setMessages(transcript);
       else if (v?.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]);
+      // Reopened at the gate (classified, no mode chosen yet) → show the picker.
+      setAwaitingPersona(!!v && !v.selectedPersona && v.record?.intentType != null);
     });
   }, [idFromUrl]);
 
@@ -91,10 +104,34 @@ export default function RefinementChat() {
       if (!res.ok) throw new Error(data.error || "turn failed");
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
+      setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
       if (data.id && data.id !== intentId) {
         // Mark as shown BEFORE the URL changes so the effect no-ops (keeps the transcript).
         shownId.current = data.id; setIntentId(data.id); router.replace(`/refine?id=${data.id}`);
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally { setLoading(false); }
+  }
+
+  // The user picked a mode in the in-chat picker (§5.2 choice UX).
+  async function selectPersona(name: string) {
+    if (!intentId || loading) return;
+    const history = messages;
+    setError(null);
+    setMessages((m) => [...m, { role: "user", content: `Selected the ${name} mode.` }]);
+    setAwaitingPersona(false);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/agent/turn", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: intentId, personaSelection: name, history }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "selection failed");
+      setView(data.view);
+      setMessages((m) => [...m, { role: "agent", content: data.reply }]);
+      setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
@@ -195,6 +232,25 @@ export default function RefinementChat() {
               </div>
             ))}
             {loading && <div className="text-left"><div className="inline-block px-4 py-2 rounded-2xl bg-gray-100 text-gray-400 text-sm">thinking…</div></div>}
+            {/* Persona/mode picker — the §5.2 choice UX, in the conversation */}
+            {awaitingPersona && view?.personas && view.personas.length > 0 && !loading && (
+              <div className="border border-indigo-100 bg-indigo-50/40 rounded-2xl p-3">
+                <div className="text-xs font-medium text-indigo-900 mb-2">Choose how thorough I should be — this drives the analysis and the run cost:</div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {view.personas.map((p) => (
+                    <button key={p.id} onClick={() => selectPersona(p.name)}
+                      className={`text-left rounded-xl border p-2.5 transition hover:shadow-sm ${p.recommended ? "border-indigo-300 bg-white ring-1 ring-indigo-200" : "border-gray-200 bg-white hover:border-indigo-200"}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-800 capitalize">{p.name}</span>
+                        {p.recommended && <span className="text-[9px] uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">suggested</span>}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{PERSONA_BLURB[p.name] ?? `${p.reasoningDepth} reasoning · ${p.promptStyle}`}</div>
+                      <div className="text-[11px] font-mono text-indigo-700 mt-1">${p.low.toFixed(3)}–${p.high.toFixed(3)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {error && <div className="text-red-600 text-sm">⚠ {error}</div>}
             <div ref={endRef} />
           </div>

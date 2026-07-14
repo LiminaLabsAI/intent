@@ -14,7 +14,7 @@ import type { IntentEvent, IntentRecord } from './types.ts';
 
 /** A fresh, empty record in the DRAFT state (version 0, no events applied). */
 export function emptyRecord(id: string): IntentRecord {
-  return { id, version: 0, rawInput: '', intentType: null, risk: 'medium', complexity: null, state: 'DRAFT', slots: {} };
+  return { id, version: 0, rawInput: '', intentType: null, risk: 'medium', complexity: null, persona: null, state: 'DRAFT', slots: {} };
 }
 
 /** Apply a single event, returning a NEW record. Never mutates its input. */
@@ -59,6 +59,9 @@ export function apply(record: IntentRecord, event: IntentEvent): IntentRecord {
     case 'sized':
       next.risk = event.risk;
       next.complexity = event.complexity;
+      break;
+    case 'persona_selected':
+      next.persona = event.persona;
       break;
   }
   return next;

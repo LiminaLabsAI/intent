@@ -12,9 +12,11 @@
 
 import type { IntentRecord, Risk, SlotState } from './types.ts';
 import { assessReadiness } from './strength.ts';
+import { personaToRigor } from './cost-config.ts';
 
 export type MoveKind =
   | 'governance_stop'
+  | 'select_persona'
   | 'ask'
   | 'infer_confirm'
   | 'disambiguate'
@@ -74,7 +76,15 @@ export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium
   const gov = governanceStop(record);
   if (gov) return [gov];
 
-  const report = assessReadiness(record, risk);
+  // PERSONA GATE (§5.2 choice UX): once the intent is classified, the user picks
+  // the mode BEFORE the agent refines — the choice governs the rigor below.
+  if (record.intentType && !record.persona) {
+    return [{ kind: 'select_persona', rationale: 'user chooses the refinement/execution mode before we go deeper' }];
+  }
+
+  // The chosen persona drives refinement rigor (overrides the auto-assessed risk).
+  const rigor = personaToRigor(record.persona) ?? risk;
+  const report = assessReadiness(record, rigor);
 
   if (report.conflicts.length > 0) {
     const key = report.conflicts.slice().sort((a, b) => priority(a) - priority(b))[0];

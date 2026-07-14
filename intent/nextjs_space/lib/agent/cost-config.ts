@@ -8,7 +8,7 @@
  * them itself (that keeps it deterministic + testable). See `cost.ts`.
  */
 
-import type { Complexity } from './types.ts';
+import type { Complexity, Risk } from './types.ts';
 
 /** A model + its provider-dependent cost variables. Editable per provider re-price. */
 export interface CostModel {
@@ -117,6 +117,21 @@ export const RETRIEVAL_INPUT_TOKENS: Record<RetrievalStrategy, number> = { none:
 /** The default bundle — used as the in-code fallback when the DB has no config. */
 export function defaultCatalog(): { models: CostModel[]; personas: Persona[]; priors: EstimationPrior[] } {
   return { models: DEFAULT_MODELS, personas: DEFAULT_PERSONAS, priors: DEFAULT_PRIORS };
+}
+
+/**
+ * A chosen persona sets the REFINEMENT RIGOR (how hard the readiness bar is),
+ * mapped onto the risk-weighted requiredness matrix: fast = light, thorough =
+ * full. This is what lets the user's mode choice drive how deeply the agent
+ * refines — overriding the auto-assessed risk once they pick.
+ */
+export function personaToRigor(persona: string | null): Risk | null {
+  switch (persona) {
+    case 'fast': return 'low';
+    case 'balanced': return 'medium';
+    case 'thorough': return 'high';
+    default: return null;
+  }
 }
 
 /** Map an intent type to the executor's deliverable kind (for the reference class). */

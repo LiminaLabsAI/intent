@@ -55,3 +55,27 @@ export async function runTurn(
   const view = await materializeRecord(store, id, riskOverride);
   return { view: view!, moves, reply };
 }
+
+/**
+ * The user picked a mode in the picker (§5.2 choice UX). Record it, then let the
+ * agent proceed — under that persona's rigor — WITHOUT a Perceive step (there's
+ * no new intent text to fold, only a choice).
+ */
+export async function runPersonaSelection(
+  store: IntentEventStore,
+  id: string,
+  persona: string,
+  llm: LLM,
+  opts: { at?: string; by?: string; history?: ChatTurn[] } = {},
+): Promise<TurnResult> {
+  const at = opts.at ?? new Date().toISOString();
+  const by = opts.by ?? 'user';
+  const history = opts.history ?? [];
+  let record = await store.load(id);
+  if (!record) throw new Error(`no record for ${id}`);
+  record = await store.append(id, { kind: 'persona_selected', at, by, persona });
+  const moves = decide(record); // rigor now derives from the chosen persona
+  const reply = await narrate(record, moves, llm, { history });
+  const view = await materializeRecord(store, id);
+  return { view: view!, moves, reply };
+}

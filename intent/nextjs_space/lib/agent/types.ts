@@ -118,7 +118,8 @@ export type IntentEvent =
   | (EventBase & { kind: 'slot_valued'; key: SlotKey; value: string; inferred?: boolean })
   | (EventBase & { kind: 'slot_assessed'; key: SlotKey; state: SlotState; reason?: string; evidence?: string[] })
   | (EventBase & { kind: 'transitioned'; to: LifecycleState })
-  | (EventBase & { kind: 'sized'; risk: Risk; complexity: Complexity; rationale?: string });
+  | (EventBase & { kind: 'sized'; risk: Risk; complexity: Complexity; rationale?: string })
+  | (EventBase & { kind: 'persona_selected'; persona: string });
 
 export type EventKind = IntentEvent['kind'];
 
@@ -138,6 +139,9 @@ export interface IntentRecord {
   /** Right-sizing inputs (§3.11) — default medium/null until Perceive sizes it. */
   risk: Risk;
   complexity: Complexity | null;
+  /** The user-chosen mode/persona that governs refinement rigor + downstream run.
+   *  null until the user picks it (the agent recommends one and gates on the choice). */
+  persona: string | null;
   state: LifecycleState;
   /** Materialized slots, keyed by slot key. */
   slots: Record<SlotKey, Slot>;
