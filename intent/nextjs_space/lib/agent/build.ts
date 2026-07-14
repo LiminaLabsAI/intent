@@ -1,47 +1,45 @@
 /**
- * Phase 12 — the BUILD RUN (ADR-0002).
+ * Phase 13 (ADR-0002 amendment) — the BUILD RUN.
  *
- * One analysis pass that materializes the final working memory from the clarified
- * record and captures the model's ACTUAL token usage → actual cost (vs the
- * pre-build estimate). This is "one run": the user approves at 🟢, we compose the
- * polished, low-assumption slots, mark them strong, and stamp the measured cost.
- * Server/script only (loads the cost catalog).
+ * One analysis pass that writes the DELIVERABLE for the intent — 1+ OKF markdown
+ * files named by the chosen outcome (plan / diagram / script / doc) — and stamps
+ * the model's ACTUAL token usage → actual cost (vs the pre-build estimate). The
+ * Understanding fields are already filled live during clarify; this produces the
+ * files. Idempotent. Server/script only (loads the cost catalog).
  */
 
 import type { IntentEventStore } from './store.ts';
 import type { LLM } from './llm.ts';
-import type { IntentEvent, IntentRecord, SlotState } from './types.ts';
-import { resolveSchema } from './schema.ts';
+import type { IntentEvent, IntentRecord, PlanFile } from './types.ts';
+import { renderOkf } from './okf.ts';
 import { loadCatalog } from './cost-catalog.ts';
 import { recommendPersona } from './cost.ts';
 
 interface BuildOut {
-  slots?: { key: string; value?: string | null }[];
+  files?: { name?: string; format?: string; body?: string }[];
 }
 
-function schemaList(intentType: IntentRecord['intentType']): string {
-  return resolveSchema(intentType).map((d) => `- ${d.key}: ${d.describe}`).join('\n');
-}
 function recordSummary(record: IntentRecord): string {
-  const lines: string[] = [`intent: ${record.rawInput}`, `type: ${record.intentType ?? 'unclassified'}`];
+  const lines: string[] = [`intent: ${record.rawInput}`, `type: ${record.intentType ?? 'unclassified'}`, `desired outcome: ${record.outcome ?? 'plan'}`];
   for (const [k, s] of Object.entries(record.slots)) if (s.value) lines.push(`- ${k}: ${s.value}`);
   return lines.join('\n');
 }
 
-function system(intentType: IntentRecord['intentType']): string {
-  return `You are the BUILD stage of an intent-refinement agent. The clarification is done; compose the FINAL working memory.
-Produce polished, complete, LOW-ASSUMPTION values for each slot below — fold in everything gathered during clarification, resolve any vagueness, and state assumptions explicitly rather than leaving them implicit.
-Do NOT ask questions; this is the build. Output ONLY JSON:
-{"slots":[{"key":"<key>","value":"<final value>"}]}
-
-Slots:
-${schemaList(intentType)}`;
+function system(outcome: string): string {
+  return `You are the BUILD stage of an intent studio. Produce the DELIVERABLE for this intent as the outcome type "${outcome}".
+Output ONLY JSON: {"files":[{"name":"<name>.md","format":"plan|diagram|script|doc","body":"<markdown>"}]}
+- Name each file by the outcome: plan.md, diagram.md, script.md, doc.md. Produce ONE file, or MORE when the scenario genuinely needs it (e.g. an app plan → plan.md + data-model.md), each named accordingly.
+- body is markdown. For a diagram → a \`\`\`mermaid code block. For a script → a fenced code block. For a plan/doc → clear structured sections.
+- Ground everything strictly in the record below; do NOT invent requirements. This is for any domain, not only software.`;
 }
 
+const OUTCOME_TITLE: Record<string, string> = {
+  plan: 'Execution plan', diagram: 'Diagram', script: 'Script', doc: 'Document',
+};
+
 /**
- * Run the build. Emits `slot_valued`/`slot_assessed(strong)` for each composed
- * slot, then a `built` event carrying the measured actual cost. Idempotent: a
- * record that's already built is returned unchanged.
+ * Run the build. Composes 1+ OKF files from the record + outcome, then emits a
+ * `plan_built` event carrying the files + measured actual cost. Idempotent.
  */
 export async function runBuild(
   store: IntentEventStore,
@@ -55,18 +53,26 @@ export async function runBuild(
   if (!record) throw new Error(`no record for ${id}`);
   if (record.built) return record;
 
-  const { data: out, usage } = await llm.generateStructuredWithUsage<BuildOut>(
-    system(record.intentType),
-    `Compose the final working memory from this record:\n${recordSummary(record)}`,
-  );
+  const outcome = record.outcome ?? 'plan';
+  const { data: out, usage } = await llm.generateStructuredWithUsage<BuildOut>(system(outcome), recordSummary(record));
 
-  const events: IntentEvent[] = [];
-  const strong: SlotState = 'strong';
-  for (const s of out.slots ?? []) {
-    if (!s || !s.key || s.value == null || String(s.value).trim() === '') continue;
-    events.push({ kind: 'slot_valued', at, by, key: s.key, value: String(s.value), inferred: false });
-    events.push({ kind: 'slot_assessed', at, by, key: s.key, state: strong });
-  }
+  const files: PlanFile[] = (out.files ?? [])
+    .filter((f) => f && f.name && f.body && String(f.body).trim() !== '')
+    .map((f) => {
+      const format = String(f.format ?? outcome);
+      return {
+        name: String(f.name),
+        format,
+        content: renderOkf({
+          id: `${id}:${f.name}`,
+          type: format,
+          title: OUTCOME_TITLE[format] ?? 'Deliverable',
+          version: '1.0.0',
+          created: at,
+          body: String(f.body),
+        }),
+      };
+    });
 
   // Actual cost = measured usage × the selected persona's model price (ADR-0002).
   const catalog = await loadCatalog();
@@ -76,8 +82,8 @@ export async function runBuild(
   const actualCost = model
     ? Math.round(((usage.inputTokens * model.priceIn + usage.outputTokens * model.priceOut) / 1e6) * 100000) / 100000
     : 0;
-  events.push({ kind: 'built', at, by, actualCost, currency: 'USD' });
 
+  const events: IntentEvent[] = [{ kind: 'plan_built', at, by, files, actualCost, currency: 'USD' }];
   for (const e of events) record = await store.append(id, e);
   return record;
 }

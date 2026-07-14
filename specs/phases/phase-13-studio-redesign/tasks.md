@@ -17,10 +17,10 @@
 - [x] Commit `feat(agent): ask-to-enrich + outcome question` — 72/72
 
 ## Group 2 — Build → OKF plan files
-- [ ] `lib/agent/okf.ts` — render PlanFile as full-spec OKF markdown (front-matter + body)
-- [ ] `runBuild` composes 1+ files named by outcome; emits `plan_built` + actual cost; builds graph
-- [ ] Persist + serve files; turn route returns them
-- [ ] Commit `feat(agent): build writes OKF plan files by outcome`
+- [x] `lib/agent/okf.ts` — `renderOkf` (front-matter: okf_version/id/type/title/version/created/generator + body)
+- [x] `runBuild` composes 1+ files named by outcome (LLM `{files:[…]}`), renders OKF, emits `plan_built` + actual cost
+- [x] Files persist via the event log (`record.files`); turn route returns them + names them in the reply
+- [x] Commit `feat(agent): build writes OKF plan files by outcome` — 73/73
 
 ## Group 3 — Studio UI
 - [ ] Top strip: status · mode badge (persists) · cost (est → actual)

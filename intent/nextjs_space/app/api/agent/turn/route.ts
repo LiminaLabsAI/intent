@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       await runBuild(store, id, getLLM());
       const view = await materializeRecord(store, id);
       if (!view) return NextResponse.json({ error: 'record not found' }, { status: 404 });
-      const reply = `Built the working memory — actual cost ${view.record.actualCost != null ? `$${view.record.actualCost}` : 'recorded'}.`;
+      const names = (view.record.files ?? []).map((f) => f.name).join(', ');
+      const reply = `Built ${view.record.files?.length ?? 0} file${(view.record.files?.length ?? 0) === 1 ? '' : 's'}${names ? ` — ${names}` : ''}. Actual cost ${view.record.actualCost != null ? `$${view.record.actualCost}` : 'recorded'}.`;
       if (isHeaderBound(id)) {
         const transcript: ChatTurn[] = [
           ...historyFull,
