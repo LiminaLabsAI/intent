@@ -12,3 +12,9 @@ entry carries matching `Topics:`.
 
 | Topic | File | Section |
 |-------|------|---------|
+| cost | specs/vision/product-design.md | #5.2 |
+| cost | specs/decisions/0001-configurable-cost-estimator.md | (whole) |
+| config | specs/decisions/0001-configurable-cost-estimator.md | (whole) |
+| personas | specs/vision/product-design.md | #5.2 |
+| reference-class | specs/decisions/0001-configurable-cost-estimator.md | (whole) |
+| calibration | specs/decisions/0001-configurable-cost-estimator.md | (whole) |

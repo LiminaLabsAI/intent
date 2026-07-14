@@ -48,6 +48,18 @@ Affects-phases: phase-11-behavior-cost
 Affects-specs: none
 Detail: PRD/Plan previously rendered inside the record column, burying the working memory (the studio's centerpiece) and overflowing. User decision: a slide-over drawer that overlays the studio (working memory stays intact), streaming markdown live, with PRD/Plan tabs + download. Also installed @tailwindcss/typography — the `prose` classes were inert so markdown had been rendering flat.
 
+### [DECISION] 2026-07-14 — ADR-0001: configurable, deterministic cost estimator
+Topics: cost, config, personas, determinism, reference-class
+Affects-phases: phase-11-behavior-cost
+Affects-specs: specs/decisions/0001-configurable-cost-estimator.md, specs/vision/product-design.md#5.2
+Detail: FORGE design session with the user re-architected the Phase-11 cost machine. Decision: separate config-as-data (CostModel/Persona/EstimationPrior — every volatile model/provider var, live-editable in Postgres, seeded from a versioned default) from a pure deterministic estimateCost (config passed IN, never queried) from the measurement layer (working memory → tokens). Output = reference-class forecasting (artifact×complexity priors × persona settings) shown as honest bands, calibratable from logged estimated-vs-actual (CostObservation). One model backing N personas by settings now; multi-model/provider supported by construction. Riskiest assumption named: the output estimate is the only uncertain input — quarantined behind the reference class; commitments (measured priors, day-one logging, staleness surfacing) are what keep it from becoming a dressed-up constant.
+
+### [ARCH_CHANGE] 2026-07-14 — Cost machine implemented per ADR-0001 (4 Neon tables)
+Topics: cost, prisma, calibration
+Affects-phases: phase-11-behavior-cost
+Affects-specs: none
+Detail: Built lib/agent/cost-config.ts (types + default catalog), cost.ts (pure estimateCost/advise), measure.ts (working memory → tokens), cost-catalog.ts (DB loader + fallback); Prisma models CostModel/Persona/EstimationPrior/CostObservation pushed to Neon and seeded (1 model, 3 personas, 12 priors). /api/expand logs CostObservation. Removed the max_output cost cap (collapsed the band on large tasks). Verified: editing a DB price reflects live; auth-migration band $0.009–$0.027; 65/65 tests.
+
 ### [EVALUATOR] 2026-07-14 — Phase 11 acceptance verified live (DeepSeek V4 Flash)
 Topics: verification, behavior, cost, termination
 Affects-phases: phase-11-behavior-cost
