@@ -16,6 +16,14 @@ Detail: Live review surfaced misses: status·mode·cost were still in Artifacts 
 
 ---
 
+### [DISCOVERY] 2026-07-15 — Download consistency (BUG-003) + label rename
+Topics: ui, download, files, schema-labels
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: Live testing surfaced two things. (1) BUG-003: the Artifacts header "MD" button exported the *understanding fields* as `intent.md`, which a user naturally read as "download the plan" — so the download name (`intent.md`) and content (schema export) mismatched the viewer (`plan.md`, OKF). The real deliverable files already download correctly by their own name (`downloadFile(f.name, f.content)`) from the file row and viewer; the export button was a redundant leftover. Removed it (+ dead `exportMd`) so the only download path is the actual file. (2) Renamed the `entities` spine slot label "What's involved" → "Key items" (clearer for business users; "How we'll know it's done" kept as-is). tsc 0, 73/73.
+
+---
+
 ### [EVALUATOR] 2026-07-15 — Phase 13 verified (Groups 1–4)
 Topics: verification, ask-to-enrich, okf, ui
 Affects-phases: phase-13-studio-redesign

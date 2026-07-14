@@ -27,6 +27,7 @@ type: Backlog
 |----|-------|----------|--------|-------|--------|
 | BUG-001 | `/refine` UI is broken | P0 | resolved | Phase 9–10 | Root cause: server component awaited Prisma + NextAuth at render. Fixed: guarded render (P9) + `/refine` converged onto the agent Studio (P10), browser-verified logged in. |
 | BUG-002 | `ask_outcome` gate not firing in live dev | P2 | open | 13 | Unit test confirms the outcome gate; live dev showed offer_build instead — the recurring Next-dev deep-lib hot-reload staleness. Re-verify on a clean server + authed browser; the logic is correct. |
+| BUG-003 | Download exported `intent.md` (understanding) instead of the plan file | P2 | resolved | 13 | The Artifacts header "MD" button exported the understanding fields as `intent.md`, mistaken for the file download. The real files (`plan.md`, OKF) download correctly by their own name. Removed the export button + dead `exportMd`; the only download path is now the actual file. 2026-07-15. |
 
 ## Features
 
