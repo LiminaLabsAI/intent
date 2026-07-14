@@ -1,20 +1,23 @@
 /**
  * Phase 9 — agent runtime (server).
  *
- * A process-singleton store (globalThis-cached to survive dev HMR) so intents
- * persist across requests within the dev server. `defaultStore()` (Phase 7)
- * already swaps to the Prisma adapter when DATABASE_URL is set — this keeps the
- * in-memory store for the no-DB demo but stays swap-ready.
+ * getStore() returns the persistence-backed store: PrismaEventStore when
+ * DATABASE_URL is set (intents persist to Postgres), otherwise the in-memory
+ * store. The resolved store is cached on globalThis so it survives dev HMR and
+ * is shared across requests.
  */
 
-import { InMemoryEventStore } from './store.ts';
+import { defaultStore } from './store-prisma.ts';
 import { HfLLM } from './llm.ts';
 import type { IntentEventStore } from './store.ts';
 import type { LLM } from './llm.ts';
 
-const g = globalThis as unknown as { __agentStore?: IntentEventStore };
-export const agentStore: IntentEventStore =
-  g.__agentStore ?? (g.__agentStore = new InMemoryEventStore());
+const g = globalThis as unknown as { __agentStorePromise?: Promise<IntentEventStore> };
+
+export function getStore(): Promise<IntentEventStore> {
+  if (!g.__agentStorePromise) g.__agentStorePromise = defaultStore();
+  return g.__agentStorePromise;
+}
 
 export function getLLM(): LLM {
   return new HfLLM();

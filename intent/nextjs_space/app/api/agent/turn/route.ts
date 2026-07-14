@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agentStore, getLLM, runTurn } from '@/lib/agent';
+import { getStore, getLLM, runTurn } from '@/lib/agent';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     }
     const id: string = typeof body?.id === 'string' && body.id ? body.id : genId();
     const risk = body?.risk;
-    const result = await runTurn(agentStore, id, message, getLLM(), { risk });
+    const store = await getStore();
+    const result = await runTurn(store, id, message, getLLM(), { risk });
     return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -3,7 +3,7 @@
  * Import surface for API routes and the Studio UI.
  */
 
-export { agentStore, getLLM } from './runtime.ts';
+export { getStore, getLLM } from './runtime.ts';
 export { runTurn } from './turn.ts';
 export type { TurnResult } from './turn.ts';
 export { materializeRecord } from './materialize.ts';

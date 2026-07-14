@@ -24,6 +24,14 @@ Detail: BUG-001 root cause (Phase 7 triage) is `/refine` hard-depending on Prism
 
 ---
 
+### [NOTE] 2026-07-14 — DB persistence wired to Neon Postgres
+Topics: persistence, prisma, neon
+Affects-phases: phase-9-studio-on-trunk
+Affects-specs: none
+Detail: User configured a real Neon `DATABASE_URL` (+ Google OAuth, OpenAI key). Ran additive `prisma db push` (created IntentEvent/SlotValue; existing User/Intent data untouched — 8 seeded users preserved). Switched `runtime.ts` from a fixed in-memory store to `getStore()` → `defaultStore()` (PrismaEventStore when DATABASE_URL set), and the two agent routes to `await getStore()`. Verified: a live `/api/agent/turn` wrote 6 events to the Neon `IntentEvent` table and `GET /api/agent/record/[id]` read them back from Postgres. Intents now survive restarts. `/login` also renders now (Google creds set).
+
+---
+
 ### [NOTE] 2026-07-14 — Browser-verified end to end
 Topics: verification, studio, working-product
 Affects-phases: phase-9-studio-on-trunk

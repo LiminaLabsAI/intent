@@ -26,7 +26,7 @@
 - [x] `/refine` returns 307 (no 500), `/studio` returns 200
 - [x] Commit `test(studio): browser-verified agent Studio`
 
-## Follow-ons (documented, not this arc)
-- DB persistence: set `DATABASE_URL`, `prisma db push`, `defaultStore()` swaps to Prisma automatically.
+## Follow-ons
+- [x] **DB persistence — DONE.** Neon `DATABASE_URL` set, `prisma db push` (additive), `runtime.ts` → `getStore()`/`defaultStore()`, routes `await getStore()`. Verified: turn wrote 6 events to Neon; record reads back from Postgres.
 - Full `/refine` re-point onto the new record/agent loop (needs auth + DB stack).
 - Knowledge Graph / artifact expansion re-point; precedent/memory (Phase 10).
