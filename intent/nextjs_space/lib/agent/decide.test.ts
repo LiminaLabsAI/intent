@@ -22,9 +22,9 @@ test('governance-stop pre-empts everything', () => {
   assert.equal(m[0].kind, 'governance_stop');
 });
 
-test('empty CHANGE record → ask the objective first (highest priority)', () => {
+test('empty CHANGE record → objective is the first gap in the batch', () => {
   const m = decide(rec('CHANGE'));
-  assert.equal(m.length, 1);
+  assert.ok(m.length > 1, 'batch returns all open gaps');
   assert.equal(m[0].kind, 'ask');
   assert.equal(m[0].slot, 'objective');
 });
@@ -54,9 +54,11 @@ test('breadth before depth: an empty slot is asked before re-deepening a weak on
   assert.notEqual(m[0].slot, 'objective');
 });
 
-test('never returns more than one move (MVP — not a barrage)', () => {
-  assert.ok(decide(rec('REPORT')).length <= 1);
-  assert.ok(decide(rec('CHANGE', { objective: slot('objective', 'strong') })).length <= 1);
+test('batch: DECIDE returns all open required gaps at once (§3.11)', () => {
+  const m = decide(rec('CHANGE')); // all empty
+  const requiredCount = resolveSchema('CHANGE').filter((d) => requirednessOf(d, 'medium') === 'required').length;
+  assert.equal(m.length, requiredCount);
+  assert.ok(m.every((x) => !!x.slot));
 });
 
 test('governanceStop is null for a legitimate enterprise intent', () => {

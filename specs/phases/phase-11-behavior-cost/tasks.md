@@ -9,11 +9,11 @@
 - [x] Commit `feat(behavior): risk assessment + risk-weighted requiredness`
 
 ## Group 1 — Infer-first + batch DECIDE + termination
-- [ ] Perceive proposes inferable slots (flag inferred) + judges good-enough-for-risk
-- [ ] DECIDE returns the full open-gap set (batch); keeps stop/conflict/close pre-emption
-- [ ] Close fires at risk-scoped Ready; sufficient answers accepted
-- [ ] Unit tests (FakeLLM): trivial → 1-pass Ready; batch = all gaps
-- [ ] Commit `feat(behavior): infer-first + batch DECIDE`
+- [x] Perceive: proposes inferable slots (inferred flag), sizes risk/complexity (emits `sized`), judges adequate-for-risk
+- [x] DECIDE returns the full open-gap set (batch); keeps stop/conflict/close pre-emption; risk-scoped default
+- [x] Close fires at risk-scoped Ready (readiness uses assessed risk)
+- [x] Unit tests: batch = all gaps; right-sizing (live 1-pass check in G4)
+- [x] Commit `feat(behavior): infer-first + batch DECIDE`
 
 ## Group 2 — Cost machine (pure)
 - [ ] `lib/agent/cost.ts` — input tokens · output estimate · price catalog · personas · estimateCost(range) · recommendPersona · refineToSave

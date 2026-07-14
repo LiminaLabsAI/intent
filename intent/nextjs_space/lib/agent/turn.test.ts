@@ -15,9 +15,9 @@ test('first turn: classify → fold → decide → narrate (deterministic with F
   const res = await runTurn(store, 'i1', 'Migrate our auth to OAuth', llm, { at: AT });
   assert.equal(res.view.record.intentType, 'CHANGE');
   assert.equal(res.view.record.slots['objective'].state, 'weak');
-  assert.equal(res.moves.length, 1);
+  assert.ok(res.moves.length >= 1, 'batch of open gaps');
   assert.equal(res.moves[0].kind, 'ask');
-  assert.ok(res.moves[0].slot, 'asks about some gap'); // breadth-first: may be an empty slot, not objective
+  assert.ok(res.moves[0].slot, 'asks about some gap');
   assert.match(res.reply, /OAuth/);
 });
 

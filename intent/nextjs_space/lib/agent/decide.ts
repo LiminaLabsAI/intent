@@ -63,7 +63,7 @@ function moveForState(state: SlotState): MoveKind {
   }
 }
 
-export function decide(record: IntentRecord, risk: Risk = 'medium'): Move[] {
+export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium'): Move[] {
   const gov = governanceStop(record);
   if (gov) return [gov];
 
@@ -78,15 +78,12 @@ export function decide(record: IntentRecord, risk: Risk = 'medium'): Move[] {
     return [{ kind: 'close', rationale: 'all required slots are strong — ready to hand off' }];
   }
 
-  // Breadth before depth: engage EMPTY slots first (every turn covers new
-  // ground = visible progress), then come back to deepen weak/ambiguous ones.
-  // Without this, DECIDE re-selects the same high-priority slot every turn until
-  // it is strong — which reads as "iterating the same question".
+  // BATCH (§3.11): present ALL open required gaps at once — the user answers in
+  // bulk, not one drip per turn. Breadth (empty) before depth (weak/ambiguous)
+  // so the batch reads in a sensible order. Narrate composes them into one message.
   const stateRank = (s: SlotState): number => (s === 'empty' ? 0 : 1);
   const gaps = report.gaps
     .slice()
     .sort((a, b) => stateRank(a.state) - stateRank(b.state) || priority(a.key) - priority(b.key));
-  if (gaps.length === 0) return [];
-  const top = gaps[0];
-  return [{ kind: moveForState(top.state), slot: top.key, rationale: `next gap: '${top.key}' is ${top.state}` }];
+  return gaps.map((g) => ({ kind: moveForState(g.state), slot: g.key, rationale: `gap: '${g.key}' is ${g.state}` }));
 }
