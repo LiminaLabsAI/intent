@@ -52,6 +52,13 @@ export interface ComplexityAssessment {
   rationale?: string;
 }
 
+/** A built deliverable file (ADR-0002 amendment) — OKF markdown, named by the outcome. */
+export interface PlanFile {
+  name: string;    // 'plan.md' | 'diagram.md' | 'script.md' … — named by the outcome
+  content: string; // OKF markdown (full spec)
+  format: string;  // 'plan' | 'diagram' | 'script' | 'doc'
+}
+
 /** Pre-execution cost advisory — a RANGE, never a bill (§5.2). */
 export interface CostEstimate {
   low: number;
@@ -120,7 +127,9 @@ export type IntentEvent =
   | (EventBase & { kind: 'transitioned'; to: LifecycleState })
   | (EventBase & { kind: 'sized'; risk: Risk; complexity: Complexity; rationale?: string })
   | (EventBase & { kind: 'persona_selected'; persona: string })
-  | (EventBase & { kind: 'built'; actualCost: number; currency: string });
+  | (EventBase & { kind: 'outcome_set'; outcome: string })
+  | (EventBase & { kind: 'built'; actualCost: number; currency: string })
+  | (EventBase & { kind: 'plan_built'; files: PlanFile[]; actualCost: number; currency: string });
 
 export type EventKind = IntentEvent['kind'];
 
@@ -147,6 +156,10 @@ export interface IntentRecord {
   built: boolean;
   /** Measured cost of the build run (USD), null until built. */
   actualCost: number | null;
+  /** What the user wants built — plan/diagram/script/doc (ADR-0002 amendment). null until asked. */
+  outcome: string | null;
+  /** The built deliverable files (OKF markdown). Empty until built. */
+  files: PlanFile[];
   state: LifecycleState;
   /** Materialized slots, keyed by slot key. */
   slots: Record<SlotKey, Slot>;

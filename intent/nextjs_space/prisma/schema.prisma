@@ -354,8 +354,9 @@ model CostModel {
 }
 
 model Persona {
-  id             String   @id // 'fast' | 'balanced' | 'thorough'
+  id             String   @id // 'quick' | 'balanced' | 'deep'
   name           String
+  label          String   @default("") // display: 'Quick' | 'Balanced' | 'Deep-dive'
   modelRef       String // → CostModel.id
   temperature    Float
   reasoningDepth String // low | medium | high

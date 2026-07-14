@@ -33,7 +33,8 @@ export type ReasoningDepth = 'low' | 'medium' | 'high';
 /** A persona = a pre-set bundle bound to a model. Backgrounded from users (ADR-0001). */
 export interface Persona {
   id: string;
-  name: string;               // 'fast' | 'balanced' | 'thorough'
+  name: string;               // slug: 'quick' | 'balanced' | 'deep'
+  label: string;              // display: 'Quick' | 'Balanced' | 'Deep-dive'
   modelRef: string;           // → CostModel.id
   temperature: number;        // RECOMMENDATION only — never enters the cost math
   reasoningDepth: ReasoningDepth; // scales output (× reasoning multiplier)
@@ -69,21 +70,21 @@ export const DEFAULT_MODELS: CostModel[] = [
     name: 'DeepSeek V4 Flash',
     provider: 'deepinfra',
     priceIn: 0.1,
-    priceOut: 0.3,
-    contextWindow: 128000,
+    priceOut: 0.2,
+    contextWindow: 1000000,
     maxOutput: 8192,
     tokenizerId: 'approx',
-    cacheDiscount: 0,
+    cacheDiscount: 0.8, // cached input $0.02 vs $0.10 → 80% off
     reasoningMultiplier: 1,
     updatedAt: SEED_AT,
-    sourceNote: 'SEED PLACEHOLDER — verify against the DeepInfra pricing console',
+    sourceNote: 'DeepInfra deepseek-ai/DeepSeek-V4-Flash — $0.10 in / $0.20 out per 1M, cached $0.02, 1M ctx (verified 2026-07-15)',
   },
 ];
 
 export const DEFAULT_PERSONAS: Persona[] = [
-  { id: 'fast', name: 'fast', modelRef: 'deepseek-v4-flash', temperature: 0.2, reasoningDepth: 'low', promptStyle: 'terse', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
-  { id: 'balanced', name: 'balanced', modelRef: 'deepseek-v4-flash', temperature: 0.4, reasoningDepth: 'medium', promptStyle: 'standard', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
-  { id: 'thorough', name: 'thorough', modelRef: 'deepseek-v4-flash', temperature: 0.6, reasoningDepth: 'high', promptStyle: 'verbose', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
+  { id: 'quick', name: 'quick', label: 'Quick', modelRef: 'deepseek-v4-flash', temperature: 0.2, reasoningDepth: 'low', promptStyle: 'terse', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
+  { id: 'balanced', name: 'balanced', label: 'Balanced', modelRef: 'deepseek-v4-flash', temperature: 0.4, reasoningDepth: 'medium', promptStyle: 'standard', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
+  { id: 'deep', name: 'deep', label: 'Deep-dive', modelRef: 'deepseek-v4-flash', temperature: 0.6, reasoningDepth: 'high', promptStyle: 'verbose', retrieval: 'none', budgetCeiling: null, visibleToUser: false },
 ];
 
 /** Reference-class priors, keyed `${DeliverableKind}:${Complexity}`. sampleSize 0 = prior, not yet calibrated. */
@@ -127,9 +128,9 @@ export function defaultCatalog(): { models: CostModel[]; personas: Persona[]; pr
  */
 export function personaToRigor(persona: string | null): Risk | null {
   switch (persona) {
-    case 'fast': return 'low';
+    case 'quick': return 'low';
     case 'balanced': return 'medium';
-    case 'thorough': return 'high';
+    case 'deep': return 'high';
     default: return null;
   }
 }

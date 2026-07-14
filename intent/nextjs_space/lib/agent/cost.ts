@@ -94,6 +94,7 @@ function daysSince(iso: string): number | null {
 export interface PersonaOption {
   id: string;
   name: string;
+  label: string;
   low: number;
   high: number;
   currency: string;
@@ -112,7 +113,7 @@ export function personaOptions(
     const model = catalog.models.find((mo) => mo.id === p.modelRef) ?? catalog.models[0];
     const est = estimateCost({ measurements, model, persona: p, priors: catalog.priors });
     return {
-      id: p.id, name: p.name, low: est.low, high: est.high, currency: est.currency,
+      id: p.id, name: p.name, label: p.label, low: est.low, high: est.high, currency: est.currency,
       reasoningDepth: p.reasoningDepth, promptStyle: p.promptStyle, recommended: p.name === rec,
     };
   });
@@ -124,8 +125,8 @@ const COMPLEXITY_ORDER: Complexity[] = ['trivial', 'moderate', 'complex'];
 export function recommendPersona(risk: Risk, complexity: Complexity, personas: Persona[]): Persona {
   const byName = (n: string) => personas.find((p) => p.name === n);
   let want: string;
-  if (complexity === 'complex' || risk === 'high') want = 'thorough';
-  else if (complexity === 'trivial' && risk === 'low') want = 'fast';
+  if (complexity === 'complex' || risk === 'high') want = 'deep';
+  else if (complexity === 'trivial' && risk === 'low') want = 'quick';
   else want = 'balanced';
   return byName(want) ?? personas[0];
 }

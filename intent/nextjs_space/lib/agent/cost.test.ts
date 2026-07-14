@@ -21,27 +21,29 @@ test('estimateCost returns an honest band with persona + overflow + assumptions'
 });
 
 test('reference class scales cost: complex > trivial for the same everything', () => {
-  const trivial = estimateCost({ measurements: meas({ complexity: 'trivial' }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
-  const complex = estimateCost({ measurements: meas({ complexity: 'complex' }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const trivial = estimateCost({ measurements: meas({ complexity: 'trivial' }), model: MODEL, persona: persona('quick'), priors: DEFAULT_PRIORS });
+  const complex = estimateCost({ measurements: meas({ complexity: 'complex' }), model: MODEL, persona: persona('quick'), priors: DEFAULT_PRIORS });
   assert.ok(complex.high > trivial.high);
 });
 
 test('persona settings scale output: thorough > fast on identical measurements', () => {
   const m = meas();
-  const fast = estimateCost({ measurements: m, model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
-  const thorough = estimateCost({ measurements: m, model: MODEL, persona: persona('thorough'), priors: DEFAULT_PRIORS });
+  const fast = estimateCost({ measurements: m, model: MODEL, persona: persona('quick'), priors: DEFAULT_PRIORS });
+  const thorough = estimateCost({ measurements: m, model: MODEL, persona: persona('deep'), priors: DEFAULT_PRIORS });
   assert.ok(thorough.high > fast.high, 'high reasoning + verbose costs more output');
 });
 
 test('overflow trips when the working memory exceeds the context window', () => {
-  const est = estimateCost({ measurements: meas({ inputTokens: MODEL.contextWindow + 1 }), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const est = estimateCost({ measurements: meas({ inputTokens: MODEL.contextWindow + 1 }), model: MODEL, persona: persona('quick'), priors: DEFAULT_PRIORS });
   assert.equal(est.overflow, true);
 });
 
 test('caching discount lowers the input cost', () => {
+  const nocache: CostModel = { ...MODEL, cacheDiscount: 0 };
   const cached: CostModel = { ...MODEL, cacheDiscount: 0.5 };
-  const base = estimateCost({ measurements: meas(), model: MODEL, persona: persona('fast'), priors: DEFAULT_PRIORS });
-  const disc = estimateCost({ measurements: meas(), model: cached, persona: persona('fast'), priors: DEFAULT_PRIORS });
+  const big = meas({ inputTokens: 500000 }); // large input so the discount clears rounding
+  const base = estimateCost({ measurements: big, model: nocache, persona: persona('quick'), priors: DEFAULT_PRIORS });
+  const disc = estimateCost({ measurements: big, model: cached, persona: persona('quick'), priors: DEFAULT_PRIORS });
   assert.ok(disc.low < base.low);
 });
 
@@ -49,14 +51,14 @@ test('the band is preserved for large tasks — max_output does not collapse it'
   // A complex intent estimates output far above a single response limit; cost is
   // NOT capped (multiple calls), so low < high must survive.
   const smallCap: CostModel = { ...MODEL, maxOutput: 500 };
-  const est = estimateCost({ measurements: meas({ complexity: 'complex' }), model: smallCap, persona: persona('thorough'), priors: DEFAULT_PRIORS });
+  const est = estimateCost({ measurements: meas({ complexity: 'complex' }), model: smallCap, persona: persona('deep'), priors: DEFAULT_PRIORS });
   assert.ok(est.low < est.high, 'band survives even when the estimate exceeds max_output');
 });
 
 test('recommendPersona right-sizes: trivial+low→fast, complex/high→thorough', () => {
-  assert.equal(recommendPersona('low', 'trivial', DEFAULT_PERSONAS).name, 'fast');
-  assert.equal(recommendPersona('medium', 'complex', DEFAULT_PERSONAS).name, 'thorough');
-  assert.equal(recommendPersona('high', 'moderate', DEFAULT_PERSONAS).name, 'thorough');
+  assert.equal(recommendPersona('low', 'trivial', DEFAULT_PERSONAS).name, 'quick');
+  assert.equal(recommendPersona('medium', 'complex', DEFAULT_PERSONAS).name, 'deep');
+  assert.equal(recommendPersona('high', 'moderate', DEFAULT_PERSONAS).name, 'deep');
   assert.equal(recommendPersona('medium', 'moderate', DEFAULT_PERSONAS).name, 'balanced');
 });
 
@@ -69,7 +71,7 @@ test('advise picks a persona, bands the cost, and shows refine-to-save for non-t
 
 test('advise: a trivial low-risk intent has no refine-to-save (already tightest)', () => {
   const est = advise(meas({ complexity: 'trivial', risk: 'low' }), defaultCatalog());
-  assert.equal(est.persona, 'fast');
+  assert.equal(est.persona, 'quick');
   assert.equal(est.refineToSave, undefined);
 });
 

@@ -5,11 +5,11 @@
 
 ## Group 0 — ADR amendment + contracts
 - [x] ADR-0002 amendment (done at brainstorm)
-- [ ] Plain-language schema labels (entities → "What's involved", acceptance → "How we'll know it's done", …); keys unchanged
-- [ ] Personas → Quick / Balanced / Deep-dive (ids + labels; personaToRigor; recommendPersona; seed; tests)
-- [ ] Real DeepInfra / DeepSeek V4 Flash values in `CostModel` (prices, context window, max output)
-- [ ] Record `outcome` + `format`; `plan_built` event; `PlanFile` type
-- [ ] Commit `feat(studio): redesign contracts + real model values`
+- [x] Plain-language schema labels (entities → "What's involved", acceptance → "How we'll know it's done", blast_radius, migration_path); keys unchanged
+- [x] Personas → Quick / Balanced / Deep-dive (ids quick/balanced/deep + `label`; personaToRigor; recommendPersona; DB reconciled + seed; tests updated)
+- [x] Real DeepInfra values in `CostModel` — $0.10 in / $0.20 out per 1M · 1M ctx · 0.8 cache (verified 2026-07-15)
+- [x] Record `outcome` + `files`; `outcome_set` + `plan_built` events; `PlanFile` type
+- [x] Commit `feat(studio): redesign contracts + real model values` — 71/71, tsc 0
 
 ## Group 1 — Ask-to-enrich
 - [ ] `verify` → grounded gap-filling questions; assumption only on user decline

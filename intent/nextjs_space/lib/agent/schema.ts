@@ -40,13 +40,13 @@ export const SPINE_SLOTS: SlotDef[] = [
     requiredness: req('recommended', 'required', 'required'),
   },
   {
-    key: 'entities', label: 'Entities', layer: 'spine',
+    key: 'entities', label: "What's involved", layer: 'spine',
     describe: 'The specific things the intent touches.',
     rubric: 'Named specifically and resolvable to real assets; no dangling references.',
     requiredness: req('required', 'required', 'required'),
   },
   {
-    key: 'acceptance_criteria', label: 'Acceptance criteria', layer: 'spine',
+    key: 'acceptance_criteria', label: "How we'll know it's done", layer: 'spine',
     describe: 'How we verify the objective is met.',
     rubric: 'Checkable output properties (Change/Create/Report), or an evidentiary bar (Analyze).',
     requiredness: req('recommended', 'required', 'required'),
@@ -68,13 +68,13 @@ export const CHANGE_TEMPLATE: SlotDef[] = [
     requiredness: req('optional', 'recommended', 'required'),
   },
   {
-    key: 'migration_path', label: 'Migration path', layer: 'template',
+    key: 'migration_path', label: 'How to move over', layer: 'template',
     describe: 'How existing data/users move to the new state.',
     rubric: 'A concrete plan for moving existing data/users without loss.',
     requiredness: req('recommended', 'required', 'required'),
   },
   {
-    key: 'blast_radius', label: 'Blast radius', layer: 'template',
+    key: 'blast_radius', label: 'What could be affected', layer: 'template',
     describe: 'What is affected if this goes wrong.',
     rubric: 'Names downstream systems/users at risk if the change fails.',
     requiredness: req('recommended', 'required', 'required'),

@@ -52,7 +52,7 @@ function toCostModel(r: Row): CostModel {
 }
 function toPersona(r: Row): Persona {
   return {
-    id: String(r.id), name: String(r.name), modelRef: String(r.modelRef),
+    id: String(r.id), name: String(r.name), label: String(r.label ?? r.name), modelRef: String(r.modelRef),
     temperature: Number(r.temperature), reasoningDepth: String(r.reasoningDepth) as ReasoningDepth,
     promptStyle: String(r.promptStyle) as PromptStyle, retrieval: String(r.retrieval) as RetrievalStrategy,
     budgetCeiling: r.budgetCeiling == null ? null : Number(r.budgetCeiling),

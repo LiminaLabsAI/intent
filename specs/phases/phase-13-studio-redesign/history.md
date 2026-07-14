@@ -1,5 +1,13 @@
 # Phase 13 History — Studio Experience Redesign
 
+### [NOTE] 2026-07-15 — Group 0 (contracts + real values) landed
+Topics: contracts, personas, cost, okf, schema-labels
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: Plain-language schema labels (entities → "What's involved", acceptance_criteria → "How we'll know it's done", blast_radius → "What could be affected", migration_path → "How to move over"); keys unchanged. Personas renamed quick/balanced/deep with a `label` field (Quick/Balanced/Deep-dive) — DB Persona table got a `label` column, stale cost rows cleared + re-seeded. Real DeepInfra DeepSeek-V4-Flash values seeded: $0.10 in / $0.20 out per 1M, 1M context, 0.8 cache discount (was placeholder $0.1/$0.3/128k/0). Added `PlanFile` type, record `outcome`/`files`, and `outcome_set`/`plan_built` events. Tests updated for the rename + reprice; 71/71, tsc 0.
+
+---
+
 ### [DECISION] 2026-07-15 — Ask-to-enrich replaces assume-then-verify
 Topics: agent-behavior, clarify, hallucination
 Affects-phases: phase-13-studio-redesign

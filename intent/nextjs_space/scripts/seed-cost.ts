@@ -30,7 +30,7 @@ async function main() {
       where: { id: p.id },
       update: {},
       create: {
-        id: p.id, name: p.name, modelRef: p.modelRef, temperature: p.temperature,
+        id: p.id, name: p.name, label: p.label, modelRef: p.modelRef, temperature: p.temperature,
         reasoningDepth: p.reasoningDepth, promptStyle: p.promptStyle, retrieval: p.retrieval,
         budgetCeiling: p.budgetCeiling, visibleToUser: p.visibleToUser,
       },
