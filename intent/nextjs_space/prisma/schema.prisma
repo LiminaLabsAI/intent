@@ -335,3 +335,56 @@ model SlotValue {
   @@unique([intentId, key])
   @@index([intentId])
 }
+
+// ── Cost config (ADR-0001) — the volatile, model/provider-dependent variables as DATA ─
+model CostModel {
+  id                  String   @id // stable id, e.g. 'deepseek-v4-flash'
+  name                String
+  provider            String
+  priceIn             Float // USD per 1M input tokens
+  priceOut            Float // USD per 1M output tokens
+  contextWindow       Int
+  maxOutput           Int
+  tokenizerId         String   @default("approx")
+  cacheDiscount       Float    @default(0)
+  reasoningMultiplier Float    @default(1)
+  sourceNote          String?
+  updatedAt           DateTime @updatedAt
+}
+
+model Persona {
+  id             String   @id // 'fast' | 'balanced' | 'thorough'
+  name           String
+  modelRef       String // → CostModel.id
+  temperature    Float
+  reasoningDepth String // low | medium | high
+  promptStyle    String // terse | standard | verbose
+  retrieval      String   @default("none") // none | rag
+  budgetCeiling  Float?
+  visibleToUser  Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@index([modelRef])
+}
+
+model EstimationPrior {
+  refClass   String   @id // 'code:moderate'
+  outLow     Int
+  outHigh    Int
+  sampleSize Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+// Estimated-vs-actual output tokens — accumulates now so calibration (Phase 18) has a corpus.
+model CostObservation {
+  id        String   @id @default(cuid())
+  intentId  String?
+  refClass  String
+  personaId String?
+  estOutLow Int
+  estOutHigh Int
+  actualOut Int
+  createdAt DateTime @default(now())
+
+  @@index([refClass])
+}
