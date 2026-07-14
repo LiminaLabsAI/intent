@@ -31,7 +31,7 @@ type: Backlog
 
 | ID | Title | Priority | Status | Phase | Detail |
 |----|-------|----------|--------|-------|--------|
-| _(none)_ | | | | | |
+| FEAT-001 | Persist the chat transcript (not just the record) | P2 | open | — | The `/refine` chat is client-only; reloading an existing conversation shows only the opening line because the agent's replies aren't stored. Options: persist `ChatTurn[]` on the Intent header, or store narration as events and rebuild on load. Discovered 2026-07-14 during UI-freshness debugging. |
 
 ## Tech Debt
 
