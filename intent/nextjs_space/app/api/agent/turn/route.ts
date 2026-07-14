@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
-import { getStore, getLLM, runTurn, runPersonaSelection } from '@/lib/agent';
+import { getStore, getLLM, runTurn, runPersonaSelection, runBuild, materializeRecord } from '@/lib/agent';
 import { createIntentHeader, isHeaderBound, syncIntentHeader, saveTranscript } from '@/lib/agent/intent-header.ts';
 import type { ChatTurn } from '@/lib/agent/types.ts';
 
@@ -37,6 +37,28 @@ export async function POST(req: NextRequest) {
         ]);
       }
       return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
+    }
+
+    // ── Build run (ADR-0002): the user approved building the working memory ──────
+    if (body?.build === true) {
+      const id = typeof body?.id === 'string' && body.id ? body.id : undefined;
+      if (!id) return NextResponse.json({ error: 'id is required to build' }, { status: 400 });
+      await runBuild(store, id, getLLM());
+      const view = await materializeRecord(store, id);
+      if (!view) return NextResponse.json({ error: 'record not found' }, { status: 404 });
+      const reply = `Built the working memory — actual cost ${view.record.actualCost != null ? `$${view.record.actualCost}` : 'recorded'}.`;
+      if (isHeaderBound(id)) {
+        const transcript: ChatTurn[] = [
+          ...historyFull,
+          { role: 'user', content: 'Build the working memory.' },
+          { role: 'agent', content: reply },
+        ];
+        await Promise.all([
+          syncIntentHeader(id, view).catch(() => {}),
+          saveTranscript(id, transcript).catch(() => {}),
+        ]);
+      }
+      return NextResponse.json({ id, moves: [{ kind: 'close', rationale: 'built' }], reply, view });
     }
 
     // ── Normal message turn ─────────────────────────────────────────────────────

@@ -10,10 +10,10 @@
 - [x] Commit `feat(agent): build-flow contracts` — 68/68, tsc clean
 
 ## Group 1 — Backend build run + actual cost
-- [ ] `lib/agent/build.ts` `runBuild` — one usage-capturing analysis pass → materialize + `built` w/ actualCost
-- [ ] Turn route `{ build: true }` action → runBuild; persist transcript line
-- [ ] `materializeRecord` surfaces `built`/`actualCost`
-- [ ] Commit `feat(agent): build run + actual-cost capture`
+- [x] `lib/agent/build.ts` `runBuild` — one usage-capturing analysis pass → materialize + `built` w/ actualCost (2 tests)
+- [x] Turn route `{ build: true }` action → runBuild; persist transcript line
+- [x] `materializeRecord` surfaces `built`/`actualCost` (on `record`, flows through)
+- [x] Commit `feat(agent): build run + actual-cost capture` — 70/70
 
 ## Group 2 — Clarify: verify assumptions
 - [ ] Narrate inferred-strong slots as confirm/edit prompts (one batch)
