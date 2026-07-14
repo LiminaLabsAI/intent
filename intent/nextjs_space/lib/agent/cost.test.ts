@@ -45,12 +45,12 @@ test('caching discount lowers the input cost', () => {
   assert.ok(disc.low < base.low);
 });
 
-test('output is capped at the model max_output', () => {
-  const tiny: CostModel = { ...MODEL, maxOutput: 500 };
-  const est = estimateCost({ measurements: meas({ complexity: 'complex' }), model: tiny, persona: persona('thorough'), priors: DEFAULT_PRIORS });
-  // 500 out tok cap → cost.high = (in*priceIn + 500*priceOut)/1e6
-  const expectedHigh = ((1500) * tiny.priceIn + 500 * tiny.priceOut) / 1e6;
-  assert.ok(Math.abs(est.high - Math.round(expectedHigh * 10000) / 10000) < 1e-6);
+test('the band is preserved for large tasks — max_output does not collapse it', () => {
+  // A complex intent estimates output far above a single response limit; cost is
+  // NOT capped (multiple calls), so low < high must survive.
+  const smallCap: CostModel = { ...MODEL, maxOutput: 500 };
+  const est = estimateCost({ measurements: meas({ complexity: 'complex' }), model: smallCap, persona: persona('thorough'), priors: DEFAULT_PRIORS });
+  assert.ok(est.low < est.high, 'band survives even when the estimate exceeds max_output');
 });
 
 test('recommendPersona right-sizes: trivial+low→fast, complex/high→thorough', () => {

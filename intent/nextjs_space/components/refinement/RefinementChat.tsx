@@ -11,7 +11,7 @@ type Msg = { role: "user" | "agent"; content: string };
 type SlotState = "empty" | "weak" | "ambiguous" | "conflicting" | "strong";
 interface Slot { key: string; value: string | null; state: SlotState; reason?: string; inferred?: boolean }
 interface SlotSummary { key: string; label: string; layer: string; requiredness: string; describe: string }
-interface CostEstimate { low: number; high: number; currency: string; persona: string; assumptions: string[]; refineToSave?: number }
+interface CostEstimate { low: number; high: number; currency: string; persona: string; assumptions: string[]; refineToSave?: number; overflow?: boolean }
 interface View {
   record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; slots: Record<string, Slot> };
   readiness: { readiness: "vague" | "actionable" | "ready"; required: number; requiredStrong: number; conflicts: string[] };
@@ -227,6 +227,7 @@ export default function RefinementChat() {
                         <span className="font-mono text-indigo-800">${view.cost.low.toFixed(3)}–${view.cost.high.toFixed(3)}</span>
                       </div>
                       <div className="mt-1 text-indigo-700/80">Suggested persona: <span className="font-medium capitalize">{view.cost.persona}</span>{typeof view.cost.refineToSave === "number" && view.cost.refineToSave > 0 && <> · refining saves ~<span className="font-mono">${view.cost.refineToSave.toFixed(3)}</span> vs a frontier default</>}</div>
+                      {view.cost.overflow && <div className="mt-1 text-[11px] text-amber-700">⚠ working memory exceeds the model's context window — will need compression or RAG</div>}
                       <div className="mt-1 text-[10px] text-indigo-400 leading-snug">{view.cost.assumptions.join(" · ")}</div>
                     </div>
                   )}

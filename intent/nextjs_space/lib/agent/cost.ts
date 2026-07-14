@@ -51,12 +51,15 @@ export function estimateCost(inputs: CostInputs): CostEstimate {
   const rawIn = m.inputTokens + RETRIEVAL_INPUT_TOKENS[persona.retrieval];
   const billableIn = rawIn * (1 - model.cacheDiscount);
 
-  // OUTPUT — the reference-class band × persona settings, capped at the model max.
+  // OUTPUT — the reference-class band × persona settings. NOT capped at
+  // max_output: that limits a single response, not the task's total output
+  // (a large deliverable is produced over multiple calls); capping would
+  // underestimate big tasks and collapse the band.
   const bucket = lookupPrior(priors, refClassOf(m.intentType, m.complexity));
   const settingMult =
     REASONING_FACTOR[persona.reasoningDepth] * STYLE_FACTOR[persona.promptStyle] * model.reasoningMultiplier;
-  const outLow = Math.min(bucket.outLow * settingMult, model.maxOutput);
-  const outHigh = Math.min(bucket.outHigh * settingMult, model.maxOutput);
+  const outLow = bucket.outLow * settingMult;
+  const outHigh = bucket.outHigh * settingMult;
 
   // COST band — width comes from the OUTPUT reference-class variance (the honest part).
   const costLow = (billableIn * model.priceIn + outLow * model.priceOut) / 1e6;

@@ -4,6 +4,9 @@ import { streamText } from "ai";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options";
+import { getStore } from "@/lib/agent";
+import { tokenize } from "@/lib/agent/measure.ts";
+import { loadCatalog } from "@/lib/agent/cost-catalog.ts";
 
 const hf = createOpenAI({
   baseURL: 'https://router.huggingface.co/v1',
@@ -60,7 +63,7 @@ ${JSON.stringify(intentData, null, 2)}
       model: getChatModel(),
       system: systemPrompt,
       prompt: `Please generate the ${type} for this intent.`,
-      onFinish: async ({ text }) => {
+      onFinish: async ({ text, usage }) => {
         try {
           const updatedIntent = await prisma.intent.findUnique({ where: { id: intentId } });
           const currentArtifacts = (updatedIntent?.artifacts as any) || {};
@@ -71,6 +74,27 @@ ${JSON.stringify(intentData, null, 2)}
           });
         } catch (err) {
           console.error("[EXPAND] Error saving artifact", err);
+        }
+
+        // ADR-0001 calibration: log estimated-vs-actual output tokens for the
+        // DOCUMENT reference class. Accumulates a corpus now so Phase-18
+        // calibration has real data. Best-effort — never breaks the response.
+        try {
+          const store = await getStore();
+          const record = await store.load(intentId);
+          const complexity = record?.complexity ?? "moderate";
+          const refClass = `document:${complexity}`;
+          const prior = (await loadCatalog()).priors.find((p) => p.refClass === refClass);
+          const u = usage as { completionTokens?: number; outputTokens?: number } | undefined;
+          const actualOut = u?.completionTokens ?? u?.outputTokens ?? tokenize(text, "approx");
+          await prisma.costObservation.create({
+            data: {
+              intentId, refClass, personaId: null,
+              estOutLow: prior?.outLow ?? 0, estOutHigh: prior?.outHigh ?? 0, actualOut,
+            },
+          });
+        } catch (err) {
+          console.error("[EXPAND] cost observation failed", err);
         }
       }
     });
