@@ -28,6 +28,8 @@
 - [x] Commit `feat(studio): batch narration + cost panel`
 
 ## Group 4 — Verification
-- [ ] Full suite green
-- [ ] Browser: todo-app → 🟢 Ready in one batch pass, no loop; cost band shows
-- [ ] Commit `test(behavior+cost): verified`
+- [x] Full suite green — 54/54 (fresh run)
+- [x] Live behavior (DeepSeek V4 Flash, API-driven): todo-app **actionable (4/5) in ONE pass**, agent infers objective/scope/out-of-scope/entities/acceptance and asks only the single unknowable (`context`); on the answer it reaches **🟢 ready (5/5)** and **closes itself** — **no drip, no re-asking, no loop** (2-turn transcript captured in history)
+- [x] Cost band present in the record view (`view.cost`); deterministic provenance badges (`inferred`) verified
+- [~] Browser-visual click-through of `/refine` is the user's to do — the page is auth-gated and credential entry is out of scope for the agent (page compiles clean, tsc 0 errors)
+- [x] Commit `test(behavior+cost): verified`

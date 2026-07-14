@@ -30,4 +30,16 @@ Affects-phases: phase-11-behavior-cost
 Affects-specs: none
 Detail: BUG-001 (`/refine` UI broken) is resolved — Phase 9 guarded the render, Phase 10 converged `/refine` onto the agent (browser-verified). Flipping it to resolved in the backlog.
 
+### [DECISION] 2026-07-14 — Slot provenance is DETERMINISTIC, not the LLM's self-report
+Topics: provenance, inferred, determinism, core-principle
+Affects-phases: phase-11-behavior-cost
+Affects-specs: specs/vision/product-design.md#3.11
+Detail: The `inferred` badge (which values the agent supplied vs the user stated) is derived deterministically — a value is inferred when <25% of its content words trace to anything the user actually said. We do NOT trust the model's `inferred` flag: DeepSeek V4 Flash swung from flagging nothing to flagging everything under prompt pressure. Provenance is a fact about the input, so it belongs on a deterministic rail — the exact "deterministic systems a probabilistic agent runs on" principle. Persisted on `Slot.inferred` via the `slot_valued` event; a later user edit clears the flag.
+
+### [EVALUATOR] 2026-07-14 — Phase 11 acceptance verified live (DeepSeek V4 Flash)
+Topics: verification, behavior, cost, termination
+Affects-phases: phase-11-behavior-cost
+Affects-specs: none
+Detail: The todo-CRUD intent that previously looped now: (turn 1) sizes low/trivial, infers objective/scope/out-of-scope/entities/acceptance, reaches actionable 4/5, asks only `context`; (turn 2, answered) reaches ready 5/5 and closes itself — no drip, no re-asking, no loop. A high-risk auth-migration sizes high/complex → 8 required, batches all 6 gaps in one message, persona `thorough`, cost band ~$0.17–$0.46. Cost is right-sized (trivial ≈ $0.0003–$0.0009, `fast`). Suite 54/54. Browser-visual of `/refine` is auth-gated → left to the user.
+
 ---
