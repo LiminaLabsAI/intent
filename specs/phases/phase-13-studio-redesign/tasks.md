@@ -23,11 +23,12 @@
 - [x] Commit `feat(agent): build writes OKF plan files by outcome` — 73/73
 
 ## Group 3 — Studio UI
-- [ ] Top strip: status · mode badge (persists) · cost (est → actual)
-- [ ] Right column split: Understanding (live) + Artifacts (files: view + download); remove PRD/Plan buttons
-- [ ] Build button in conversation, always on, colour follows status
-- [ ] Understanding un-gated (live); mode persists on reload
-- [ ] Commit `feat(studio): top strip + Understanding/Artifacts split + always-on build`
+- [x] Understanding un-gated (live slots, plain labels); panel renamed "Artifacts" + **mode badge** in header (persists via selectedPersona)
+- [x] Build button in the conversation, always on, colour follows status (amber-when-thin → green-when-ready)
+- [x] Outcome picker chips (Plan/Diagram/Script/Doc); persona picker uses labels (Quick/Balanced/Deep-dive)
+- [x] Files section (OKF `.md`, click to view in a drawer + download); PRD/Plan buttons removed
+- [~] Cost strip stayed in-panel (mode badge lifted to header); full top-strip relocation of status+cost deferred → follow-up
+- [x] Commit `feat(studio): Understanding/Artifacts split + always-on build + files`
 
 ## Group 4 — Verification
 - [ ] Unit: persona rename · OKF render · plan_built files · outcome-drives-files

@@ -12,10 +12,10 @@ type SlotState = "empty" | "weak" | "ambiguous" | "conflicting" | "strong";
 interface Slot { key: string; value: string | null; state: SlotState; reason?: string; inferred?: boolean }
 interface SlotSummary { key: string; label: string; layer: string; requiredness: string; describe: string }
 interface CostEstimate { low: number; high: number; currency: string; persona: string; assumptions: string[]; refineToSave?: number; overflow?: boolean }
-interface PersonaOption { id: string; name: string; low: number; high: number; currency: string; reasoningDepth: string; promptStyle: string; recommended: boolean }
+interface PersonaOption { id: string; name: string; label: string; low: number; high: number; currency: string; reasoningDepth: string; promptStyle: string; recommended: boolean }
 interface Move { kind: string; slot?: string }
 interface View {
-  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; persona?: string | null; built?: boolean; actualCost?: number | null; slots: Record<string, Slot> };
+  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; persona?: string | null; built?: boolean; actualCost?: number | null; outcome?: string | null; files?: { name: string; format: string; content: string }[]; slots: Record<string, Slot> };
   readiness: { readiness: "vague" | "actionable" | "ready"; required: number; requiredStrong: number; conflicts: string[] };
   schema: SlotSummary[];
   cost?: CostEstimate;
@@ -24,10 +24,16 @@ interface View {
 }
 
 const PERSONA_BLURB: Record<string, string> = {
-  fast: "Quick pass — light refinement, cheapest run",
-  balanced: "Balanced — standard rigor and cost",
-  thorough: "Deep dive — most rigorous, premium run",
+  quick: "Light pass — fewest questions, cheapest run",
+  balanced: "Standard rigor and cost",
+  deep: "Deepest analysis — asks the most, premium run",
 };
+const OUTCOMES: { key: string; label: string }[] = [
+  { key: "a full plan", label: "Plan" },
+  { key: "a diagram", label: "Diagram" },
+  { key: "a script or code", label: "Script" },
+  { key: "a document", label: "Document" },
+];
 
 const STATE_COLOR: Record<SlotState, string> = {
   empty: "bg-gray-300", weak: "bg-amber-400", ambiguous: "bg-orange-500", conflicting: "bg-red-500", strong: "bg-emerald-500",
@@ -50,7 +56,9 @@ export default function RefinementChat() {
   const [drawer, setDrawer] = useState<"PRD" | "PLAN" | null>(null);
   const [awaitingPersona, setAwaitingPersona] = useState(false);
   const [awaitingBuild, setAwaitingBuild] = useState(false);
+  const [awaitingOutcome, setAwaitingOutcome] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [fileView, setFileView] = useState<{ name: string; content: string } | null>(null);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -110,6 +118,7 @@ export default function RefinementChat() {
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
       setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
+      setAwaitingOutcome(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "ask_outcome"));
       if (data.id && data.id !== intentId) {
         // Mark as shown BEFORE the URL changes so the effect no-ops (keeps the transcript).
         shownId.current = data.id; setIntentId(data.id); router.replace(`/refine?id=${data.id}`);
@@ -138,6 +147,7 @@ export default function RefinementChat() {
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
       setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
+      setAwaitingOutcome(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "ask_outcome"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
@@ -162,6 +172,36 @@ export default function RefinementChat() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setBuilding(false); }
+  }
+
+  // The user picked the deliverable via the outcome chips — send it as a reply.
+  async function answerOutcome(key: string) {
+    if (!intentId || loading) return;
+    const message = `I'd like ${key}.`;
+    const history = messages;
+    setAwaitingOutcome(false); setError(null);
+    setMessages((m) => [...m, { role: "user", content: message }]);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/agent/turn", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: intentId, message, history }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "turn failed");
+      setView(data.view);
+      setMessages((m) => [...m, { role: "agent", content: data.reply }]);
+      setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
+      setAwaitingOutcome(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "ask_outcome"));
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
+  }
+
+  function downloadFile(name: string, content: string) {
+    const blob = new Blob([content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function saveSlot(key: string, value: string) {
@@ -267,7 +307,7 @@ export default function RefinementChat() {
                     <button key={p.id} onClick={() => selectPersona(p.name)}
                       className={`text-left rounded-xl border p-2.5 transition hover:shadow-sm ${p.recommended ? "border-indigo-300 bg-white ring-1 ring-indigo-200" : "border-gray-200 bg-white hover:border-indigo-200"}`}>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-800 capitalize">{p.name}</span>
+                        <span className="text-sm font-semibold text-gray-800">{p.label}</span>
                         {p.recommended && <span className="text-[9px] uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-200 rounded px-1 py-0.5">suggested</span>}
                       </div>
                       <div className="text-[11px] text-gray-500 mt-0.5 leading-snug">{PERSONA_BLURB[p.name] ?? `${p.reasoningDepth} reasoning · ${p.promptStyle}`}</div>
@@ -275,6 +315,28 @@ export default function RefinementChat() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+            {/* Outcome picker — what should the build produce (ADR-0002 amendment) */}
+            {awaitingOutcome && !loading && (
+              <div className="border border-indigo-100 bg-indigo-50/40 rounded-2xl p-3">
+                <div className="text-xs font-medium text-indigo-900 mb-2">What should I produce for you?</div>
+                <div className="flex flex-wrap gap-2">
+                  {OUTCOMES.map((o) => (
+                    <button key={o.key} onClick={() => answerOutcome(o.key)}
+                      className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-white hover:border-indigo-300">{o.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Build — in the conversation, always on, status-coloured (ADR-0002 amendment) */}
+            {view && !view.record.built && view.selectedPersona && !awaitingPersona && !awaitingOutcome && !loading && (
+              <div className="text-center pt-1">
+                <button onClick={buildMemory} disabled={building}
+                  className={`px-5 py-2 text-sm font-medium rounded-lg text-white disabled:opacity-50 inline-flex items-center gap-1.5 ${view.readiness.readiness === "ready" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-500 hover:bg-amber-600"}`}>
+                  {building ? "Building…" : <><Sparkles className="w-4 h-4" /> Build {view.readiness.readiness === "ready" ? "the plan" : "anyway"}</>}
+                </button>
+                {view.readiness.readiness !== "ready" && <div className="text-[11px] text-gray-400 mt-1">Still gathering context — build now, or answer a bit more first.</div>}
               </div>
             )}
             {error && <div className="text-red-600 text-sm">⚠ {error}</div>}
@@ -299,15 +361,11 @@ export default function RefinementChat() {
           <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-gray-800">Working memory</h2>
-                <p className="text-xs text-gray-500">{view?.record.intentType ? `${view.record.intentType} intent` : "the record builds itself"}</p>
+                <h2 className="font-semibold text-gray-800">Artifacts</h2>
+                {view?.selectedPersona && <p className="text-xs text-gray-500 capitalize">{view.personas?.find((p) => p.name === view.selectedPersona)?.label ?? view.selectedPersona} mode</p>}
               </div>
-              {view && (
-                <div className="flex items-center gap-2">
-                  {view.record.built && <button onClick={exportMd} title="Export markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>}
-                  {view.record.built && <button onClick={() => openArtifact("PRD")} className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {expanding === "PRD" ? "…" : "PRD"}</button>}
-                  {view.record.built && artifacts.PRD && <button onClick={() => openArtifact("PLAN")} className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> {expanding === "PLAN" ? "…" : "Plan"}</button>}
-                </div>
+              {view?.record.built && (
+                <button onClick={exportMd} title="Export understanding as markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>
               )}
             </div>
             <div className="p-3 space-y-2">
@@ -332,23 +390,9 @@ export default function RefinementChat() {
                       )}
                     </div>
                   )}
-                  {/* Clarify phase (ADR-0002): the working memory is built on approval, not shown live */}
-                  {!view.record.built && (
-                    <div className="border border-dashed border-gray-200 rounded-lg p-3 text-center">
-                      {awaitingBuild ? (
-                        <>
-                          <p className="text-xs text-gray-500 mb-2">Enough context gathered — build the working memory when you're ready.</p>
-                          <button onClick={buildMemory} disabled={building}
-                            className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5">
-                            {building ? "Building…" : <><Sparkles className="w-4 h-4" /> Build working memory</>}
-                          </button>
-                        </>
-                      ) : (
-                        <p className="text-xs text-gray-400">The working memory builds once we've clarified enough — keep the conversation going.</p>
-                      )}
-                    </div>
-                  )}
-                  {view.record.built && view.schema.map((s) => {
+                  {/* Understanding — the intent taking shape, live (ADR-0002 amendment) */}
+                  <div className="text-[11px] text-gray-400 px-1 pt-1 flex items-center gap-1"><Cpu className="w-3 h-3" /> Understanding · updates live</div>
+                  {view.schema.map((s) => {
                     const slot = view.record.slots[s.key];
                     const state: SlotState = slot?.state ?? "empty";
                     const isEditing = editing?.key === s.key;
@@ -379,6 +423,18 @@ export default function RefinementChat() {
                       </div>
                     );
                   })}
+                  {/* Files — the built deliverable, OKF markdown (ADR-0002 amendment) */}
+                  {view.record.files && view.record.files.length > 0 && (
+                    <>
+                      <div className="text-[11px] text-gray-400 px-1 pt-2 flex items-center gap-1"><Download className="w-3 h-3" /> Files · from Build (OKF)</div>
+                      {view.record.files.map((f) => (
+                        <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
+                          <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
+                          <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -392,6 +448,25 @@ export default function RefinementChat() {
 
         </div>
       </div>
+
+      {/* File viewer — slides over to show an OKF file's content */}
+      {fileView && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={() => setFileView(null)} />
+          <div className="relative z-50 w-full max-w-2xl h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <span className="text-sm font-mono text-gray-800">{fileView.name}</span>
+              <div className="flex items-center gap-3">
+                <button onClick={() => downloadFile(fileView.name, fileView.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
+                <button onClick={() => setFileView(null)} title="Close" className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-7 py-6 prose prose-sm max-w-none prose-pre:bg-gray-50 prose-pre:text-gray-800 prose-pre:border prose-pre:border-gray-100">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{fileView.content}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Artifact drawer — slides over the studio so the working memory stays put */}
       {drawer && (
