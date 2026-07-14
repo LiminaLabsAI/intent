@@ -43,21 +43,25 @@ export default function RefinementChat() {
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
   const router = useRouter();
   const endRef = useRef<HTMLDivElement>(null);
-  const justCreatedRef = useRef(false);
+  // The conversation currently on screen. We only load-from-server when the URL
+  // points at a DIFFERENT intent — never wipe a live transcript (the id we just
+  // minted, or a re-render/nav to the same id, is a no-op).
+  const shownId = useRef<string | null>(null);
 
   useEffect(() => {
-    // Don't reload/reset when WE just created this intent (router.replace) —
-    // that would wipe the live transcript. Only reload on genuine navigation.
-    if (justCreatedRef.current) { justCreatedRef.current = false; return; }
-    if (idFromUrl) {
-      setIntentId(idFromUrl);
-      fetch(`/api/agent/record/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((v) => {
-        if (v) { setView(v); if (v.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]); }
-      }).catch(() => {});
-      fetch(`/api/intents/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.artifacts) setArtifacts(d.artifacts); }).catch(() => {});
-    } else {
+    if (idFromUrl === shownId.current) return; // already showing this conversation
+    if (!idFromUrl) {
+      shownId.current = null;
       setIntentId(null); setView(null); setMessages([]); setArtifacts({}); setInput("");
+      return;
     }
+    // Genuine navigation to a different, existing intent → load it.
+    shownId.current = idFromUrl;
+    setIntentId(idFromUrl);
+    fetch(`/api/agent/record/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((v) => {
+      if (v) { setView(v); if (v.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]); }
+    }).catch(() => {});
+    fetch(`/api/intents/${idFromUrl}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.artifacts) setArtifacts(d.artifacts); }).catch(() => {});
   }, [idFromUrl]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
@@ -78,7 +82,10 @@ export default function RefinementChat() {
       if (!res.ok) throw new Error(data.error || "turn failed");
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
-      if (data.id && data.id !== intentId) { justCreatedRef.current = true; setIntentId(data.id); router.replace(`/refine?id=${data.id}`); }
+      if (data.id && data.id !== intentId) {
+        // Mark as shown BEFORE the URL changes so the effect no-ops (keeps the transcript).
+        shownId.current = data.id; setIntentId(data.id); router.replace(`/refine?id=${data.id}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
