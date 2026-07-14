@@ -51,8 +51,14 @@ test('a conflict pre-empts open gaps', () => {
   assert.equal(m[0].slot, 'scope');
 });
 
-test('all required strong → close', () => {
-  assert.equal(decide(allRequiredStrong('CHANGE', 'medium'), 'medium')[0].kind, 'close');
+test('all required strong, not built → offer_build (ADR-0002 gate)', () => {
+  assert.equal(decide(allRequiredStrong('CHANGE', 'medium'), 'medium')[0].kind, 'offer_build');
+});
+
+test('all required strong AND built → close (handoff-ready)', () => {
+  const r = allRequiredStrong('CHANGE', 'medium');
+  r.built = true;
+  assert.equal(decide(r, 'medium')[0].kind, 'close');
 });
 
 test('gap state maps to move when it is the only gap: weak→ask, ambiguous→disambiguate', () => {

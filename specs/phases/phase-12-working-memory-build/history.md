@@ -24,6 +24,14 @@ Detail: V1 = the build flow (this phase) + the already-shipped cost engine (ADR-
 
 ---
 
+### [NOTE] 2026-07-15 — Group 0 (contracts) landed
+Topics: build-flow, contracts, offer_build, actual-cost
+Affects-phases: phase-12-working-memory-build
+Affects-specs: none
+Detail: Added `record.built`/`actualCost` + `built` event (events.ts apply); `offer_build` move — decide returns it at readiness=ready when `!built`, `close` once built; `Usage` + `generateStructuredWithUsage` on the LLM interface (Hf parses `usage`, Fake returns fixed) for the build run's actual-cost capture. Updated the two ready→close tests to ready→offer_build + a built→close variant. 68/68, tsc clean.
+
+---
+
 ### [NOTE] 2026-07-15 — Phase 11 organically outgrew its spec; this phase captures the overflow
 Topics: phase-11, phase-12, planning
 Affects-phases: phase-12-working-memory-build

@@ -4,10 +4,10 @@
 > Order: Group 0 → (Group 1 + Group 2) → Group 3 → Group 4.
 
 ## Group 0 — Contracts
-- [ ] `record.built` + `record.actualCost`; `built` event; `emptyRecord` + `apply` updated
-- [ ] `offer_build` move; decide returns it at ready+!built, `close` at ready+built
-- [ ] `Usage` + `generateStructuredWithUsage` on the LLM interface (Hf + Fake)
-- [ ] Commit `feat(agent): build-flow contracts`
+- [x] `record.built` + `record.actualCost`; `built` event; `emptyRecord` + `apply` updated
+- [x] `offer_build` move; decide returns it at ready+!built, `close` at ready+built
+- [x] `Usage` + `generateStructuredWithUsage` on the LLM interface (Hf + Fake)
+- [x] Commit `feat(agent): build-flow contracts` — 68/68, tsc clean
 
 ## Group 1 — Backend build run + actual cost
 - [ ] `lib/agent/build.ts` `runBuild` — one usage-capturing analysis pass → materialize + `built` w/ actualCost

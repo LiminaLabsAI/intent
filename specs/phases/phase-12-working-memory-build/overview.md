@@ -1,3 +1,9 @@
+---
+type: Phase
+status: in-progress
+tags: [working-memory, build-run, cost-engine, persona, actual-cost, clarify, assumptions]
+---
+
 # Phase 12 — Working-Memory Build Flow & Cost Engine
 
 > **Branch:** `feat/intent-agent` · **Verify:** `cd intent/nextjs_space && npm test` · **Build:** none

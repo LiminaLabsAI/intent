@@ -33,20 +33,20 @@ test('governance-stop path: blocked intent → governance_stop, no barrage', asy
   assert.ok(res.moves.length <= 1);
 });
 
-test('ready intent: after picking a mode, it closes', async () => {
+test('ready intent: after picking a mode, it offers to build (ADR-0002)', async () => {
   const store = new InMemoryEventStore();
   const strong = (key: string) => ({ key, value: `a concrete specific value for ${key}`, state: 'strong' as const });
   const required = ['objective', 'scope', 'entities', 'acceptance_criteria', 'context', 'rollback', 'migration_path', 'blast_radius'];
   const llm = new FakeLLM({
     structs: [{ intentType: 'CHANGE', slots: required.map(strong) }],
-    texts: ['How thorough should I be?', 'All set — this intent is ready to hand off.'],
+    texts: ['How thorough should I be?', 'Ready — shall I build the working memory?'],
   });
   const res = await runTurn(store, 'i3', 'a full, detailed OAuth migration with rollback, cutover and blast radius defined', llm, { at: AT });
   assert.equal(res.moves[0].kind, 'select_persona');
-  // pick 'balanced' (medium rigor = the required set the fixture fills) → ready → close
+  // pick 'balanced' (medium rigor = the required set the fixture fills) → ready → offer_build (not yet built)
   const res2 = await runPersonaSelection(store, 'i3', 'balanced', llm, {});
   assert.equal(res2.view.readiness.readiness, 'ready');
-  assert.equal(res2.moves[0].kind, 'close');
+  assert.equal(res2.moves[0].kind, 'offer_build');
 });
 
 test('the record is event-sourced — replay after a turn is stable', async () => {

@@ -22,6 +22,7 @@ export type MoveKind =
   | 'disambiguate'
   | 'surface_conflict'
   | 'split'
+  | 'offer_build'
   | 'close'
   | 'handoff_complete';
 
@@ -92,7 +93,12 @@ export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium
   }
 
   if (report.readiness === 'ready') {
-    return [{ kind: 'close', rationale: 'all required slots are strong — ready to hand off' }];
+    // At 🟢: offer to BUILD the working memory (ADR-0002). Only once built does
+    // the record become handoff-ready.
+    if (!record.built) {
+      return [{ kind: 'offer_build', rationale: 'enough context gathered — offer to build the working memory' }];
+    }
+    return [{ kind: 'close', rationale: 'working memory built — ready to hand off' }];
   }
 
   // BATCH (§3.11): present ALL open required gaps at once — the user answers in
