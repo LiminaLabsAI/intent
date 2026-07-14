@@ -92,6 +92,8 @@ export interface Slot {
   /** Why the judge assigned this state (first-class evidence, §3.9). */
   reason?: string;
   evidence?: string[];
+  /** The agent inferred this value (user didn't state it) — badge it, invite a correction. */
+  inferred?: boolean;
 }
 
 // ── Lifecycle (§4.5) — maps to Prisma IntentStatus at the persistence boundary ─
@@ -111,7 +113,7 @@ export type IntentEvent =
   | (EventBase & { kind: 'created'; rawInput: string })
   | (EventBase & { kind: 'classified'; intentType: IntentType })
   | (EventBase & { kind: 'slot_added'; def: SlotDef })
-  | (EventBase & { kind: 'slot_valued'; key: SlotKey; value: string })
+  | (EventBase & { kind: 'slot_valued'; key: SlotKey; value: string; inferred?: boolean })
   | (EventBase & { kind: 'slot_assessed'; key: SlotKey; state: SlotState; reason?: string; evidence?: string[] })
   | (EventBase & { kind: 'transitioned'; to: LifecycleState })
   | (EventBase & { kind: 'sized'; risk: Risk; complexity: Complexity; rationale?: string });

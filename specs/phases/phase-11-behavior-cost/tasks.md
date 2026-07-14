@@ -21,10 +21,11 @@
 - [x] Commit `feat(cost): pre-execution advisory`
 
 ## Group 3 — Wire batch + cost into UI
-- [ ] Narrate composes the batch message (inferred + all gaps, one message)
-- [ ] `materializeRecord` includes `costEstimate`
-- [ ] Studio cost-advisory panel (range · persona · refine-to-save)
-- [ ] Commit `feat(studio): batch narration + cost panel`
+- [x] Narrate composes the batch message (acknowledge captured + inferred, then all gaps in one message) — API-verified
+- [x] Provenance made DETERMINISTIC (derived, not the LLM's self-report) + persisted on `Slot.inferred`
+- [x] `materializeRecord` includes `cost` (CostEstimate)
+- [x] Studio cost-advisory panel (range · persona · refine-to-save) + inferred badge — typechecks clean; page compiles
+- [x] Commit `feat(studio): batch narration + cost panel`
 
 ## Group 4 — Verification
 - [ ] Full suite green

@@ -9,12 +9,14 @@ import MiniGraph from "./MiniGraph";
 
 type Msg = { role: "user" | "agent"; content: string };
 type SlotState = "empty" | "weak" | "ambiguous" | "conflicting" | "strong";
-interface Slot { key: string; value: string | null; state: SlotState; reason?: string }
+interface Slot { key: string; value: string | null; state: SlotState; reason?: string; inferred?: boolean }
 interface SlotSummary { key: string; label: string; layer: string; requiredness: string; describe: string }
+interface CostEstimate { low: number; high: number; currency: string; persona: string; assumptions: string[]; refineToSave?: number }
 interface View {
-  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; slots: Record<string, Slot> };
+  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; slots: Record<string, Slot> };
   readiness: { readiness: "vague" | "actionable" | "ready"; required: number; requiredStrong: number; conflicts: string[] };
   schema: SlotSummary[];
+  cost?: CostEstimate;
 }
 
 const STATE_COLOR: Record<SlotState, string> = {
@@ -197,7 +199,20 @@ export default function RefinementChat() {
               {!view && <p className="text-gray-400 text-sm p-3">No intent yet — send a message to begin.</p>}
               {view && (
                 <>
-                  <div className="text-xs text-gray-500 px-1">{view.readiness.requiredStrong}/{view.readiness.required} required slots strong</div>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="text-xs text-gray-500">{view.readiness.requiredStrong}/{view.readiness.required} required slots strong</div>
+                    {view.record.risk && <span className="text-[10px] uppercase tracking-wide text-gray-400">· {view.record.risk} risk{view.record.complexity ? ` · ${view.record.complexity}` : ""}</span>}
+                  </div>
+                  {view.cost && (
+                    <div className="border border-indigo-100 bg-indigo-50/50 rounded-lg p-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-indigo-900 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> Est. execution cost</span>
+                        <span className="font-mono text-indigo-800">${view.cost.low.toFixed(3)}–${view.cost.high.toFixed(3)}</span>
+                      </div>
+                      <div className="mt-1 text-indigo-700/80">Suggested persona: <span className="font-medium capitalize">{view.cost.persona}</span>{typeof view.cost.refineToSave === "number" && view.cost.refineToSave > 0 && <> · refining saves ~<span className="font-mono">${view.cost.refineToSave.toFixed(3)}</span> vs a frontier default</>}</div>
+                      <div className="mt-1 text-[10px] text-indigo-400 leading-snug">{view.cost.assumptions.join(" · ")}</div>
+                    </div>
+                  )}
                   {view.schema.map((s) => {
                     const slot = view.record.slots[s.key];
                     const state: SlotState = slot?.state ?? "empty";
@@ -208,6 +223,7 @@ export default function RefinementChat() {
                           <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATE_COLOR[state]}`} />
                           <span className="text-sm font-medium text-gray-800">{s.label}</span>
                           <span className="text-[10px] uppercase text-gray-400">{s.requiredness}</span>
+                          {slot?.inferred && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-50 text-sky-600 border border-sky-200" title="Agent inferred this — edit to correct">inferred</span>}
                           <button className="ml-auto opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700" onClick={() => setEditing({ key: s.key, value: slot?.value ?? "" })} title="Edit">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>

@@ -10,12 +10,13 @@
  * in-memory store (tests/dev) or the Prisma adapter (production).
  */
 
-import type { Risk } from './types.ts';
+import type { CostEstimate, Risk } from './types.ts';
 import type { IntentRecord } from './types.ts';
 import type { IntentEventStore } from './store.ts';
 import type { ReadinessReport } from './strength.ts';
 import { assessReadiness } from './strength.ts';
 import { resolveSchema, requirednessOf } from './schema.ts';
+import { estimateCost } from './cost.ts';
 
 export interface SlotSummary {
   key: string;
@@ -30,6 +31,8 @@ export interface RecordView {
   readiness: ReadinessReport;
   /** Every slot the schema expects for this intent-type, at the given risk. */
   schema: SlotSummary[];
+  /** Pre-execution cost advisory (§5.2) — a directional band, not a bill. */
+  cost: CostEstimate;
 }
 
 export async function materializeRecord(
@@ -48,5 +51,5 @@ export async function materializeRecord(
     requiredness: requirednessOf(d, risk),
     describe: d.describe,
   }));
-  return { record, readiness, schema };
+  return { record, readiness, schema, cost: estimateCost(record) };
 }

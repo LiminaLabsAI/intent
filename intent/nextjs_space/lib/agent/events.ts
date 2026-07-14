@@ -39,7 +39,8 @@ export function apply(record: IntentRecord, event: IntentEvent): IntentRecord {
       break;
     case 'slot_valued': {
       const prev = next.slots[event.key] ?? { key: event.key, value: null, state: 'empty' as const };
-      next.slots[event.key] = { ...prev, value: event.value };
+      // A later user-supplied value clears the inferred flag; an inferred value sets it.
+      next.slots[event.key] = { ...prev, value: event.value, inferred: event.inferred === true };
       break;
     }
     case 'slot_assessed': {
