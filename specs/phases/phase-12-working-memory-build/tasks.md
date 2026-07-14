@@ -21,10 +21,10 @@
 - [x] Commit `feat(agent): verify assumptions in clarify` — 71/71
 
 ## Group 3 — Studio UI
-- [ ] Hide working-memory panel until `built`; readiness status prominent during clarify
-- [ ] "Build working memory" button on `offer_build`
-- [ ] On build → reveal panel + graph + actual-vs-estimate
-- [ ] Commit `feat(studio): build gate + actual-vs-estimate`
+- [x] Hide slots panel + graph + MD/PRD/Plan until `built`; readiness + cost estimate live during clarify
+- [x] "Build working memory" button on `offer_build` (awaitingBuild); clarify placeholder otherwise
+- [x] `buildMemory()` → POST `{build:true}` → reveal panel + graph + actual cost line vs estimate
+- [x] Commit `feat(studio): build gate + actual-vs-estimate` — tsc clean, 71/71
 
 ## Group 4 — Verification
 - [ ] Unit: offer_build gate · built replay · runBuild actual-cost math

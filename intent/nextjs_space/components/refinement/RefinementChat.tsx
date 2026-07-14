@@ -15,7 +15,7 @@ interface CostEstimate { low: number; high: number; currency: string; persona: s
 interface PersonaOption { id: string; name: string; low: number; high: number; currency: string; reasoningDepth: string; promptStyle: string; recommended: boolean }
 interface Move { kind: string; slot?: string }
 interface View {
-  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; persona?: string | null; slots: Record<string, Slot> };
+  record: { id: string; version: number; intentType: string | null; state: string; rawInput?: string; risk?: string; complexity?: string | null; persona?: string | null; built?: boolean; actualCost?: number | null; slots: Record<string, Slot> };
   readiness: { readiness: "vague" | "actionable" | "ready"; required: number; requiredStrong: number; conflicts: string[] };
   schema: SlotSummary[];
   cost?: CostEstimate;
@@ -49,6 +49,8 @@ export default function RefinementChat() {
   const [artifacts, setArtifacts] = useState<{ PRD?: string; PLAN?: string }>({});
   const [drawer, setDrawer] = useState<"PRD" | "PLAN" | null>(null);
   const [awaitingPersona, setAwaitingPersona] = useState(false);
+  const [awaitingBuild, setAwaitingBuild] = useState(false);
+  const [building, setBuilding] = useState(false);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -83,6 +85,8 @@ export default function RefinementChat() {
       else if (v?.record?.rawInput) setMessages([{ role: "user", content: v.record.rawInput }]);
       // Reopened at the gate (classified, no mode chosen yet) → show the picker.
       setAwaitingPersona(!!v && !v.selectedPersona && v.record?.intentType != null);
+      // Reopened at 🟢 with a mode chosen but not yet built → show the Build button.
+      setAwaitingBuild(!!v && !v.record?.built && v.readiness?.readiness === "ready" && v.selectedPersona != null);
     });
   }, [idFromUrl]);
 
@@ -105,6 +109,7 @@ export default function RefinementChat() {
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
+      setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
       if (data.id && data.id !== intentId) {
         // Mark as shown BEFORE the URL changes so the effect no-ops (keeps the transcript).
         shownId.current = data.id; setIntentId(data.id); router.replace(`/refine?id=${data.id}`);
@@ -132,9 +137,31 @@ export default function RefinementChat() {
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
+      setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
+  }
+
+  // The user approved building the working memory (ADR-0002) — the one run.
+  async function buildMemory() {
+    if (!intentId || building) return;
+    setError(null);
+    setBuilding(true);
+    setAwaitingBuild(false);
+    setMessages((m) => [...m, { role: "user", content: "Build the working memory." }]);
+    try {
+      const res = await fetch("/api/agent/turn", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: intentId, build: true, history: messages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "build failed");
+      setView(data.view);
+      setMessages((m) => [...m, { role: "agent", content: data.reply }]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally { setBuilding(false); }
   }
 
   async function saveSlot(key: string, value: string) {
@@ -201,7 +228,6 @@ export default function RefinementChat() {
   }
 
   const r = view ? READINESS[view.readiness.readiness] : null;
-  const isReady = view?.readiness.readiness === "ready";
   const graphData = view ? {
     topics: (view.record.slots["entities"]?.value || "").split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 6).map((n, i) => ({ topic: { id: "e" + i, name: n } })),
     contexts: (view.record.slots["context"]?.value || "").split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 4).map((n, i) => ({ context: { id: "c" + i, name: n } })),
@@ -278,9 +304,9 @@ export default function RefinementChat() {
               </div>
               {view && (
                 <div className="flex items-center gap-2">
-                  <button onClick={exportMd} title="Export markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>
-                  {isReady && <button onClick={() => openArtifact("PRD")} className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {expanding === "PRD" ? "…" : "PRD"}</button>}
-                  {isReady && artifacts.PRD && <button onClick={() => openArtifact("PLAN")} className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> {expanding === "PLAN" ? "…" : "Plan"}</button>}
+                  {view.record.built && <button onClick={exportMd} title="Export markdown" className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> MD</button>}
+                  {view.record.built && <button onClick={() => openArtifact("PRD")} className="px-2.5 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> {expanding === "PRD" ? "…" : "PRD"}</button>}
+                  {view.record.built && artifacts.PRD && <button onClick={() => openArtifact("PLAN")} className="px-2.5 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5" /> {expanding === "PLAN" ? "…" : "Plan"}</button>}
                 </div>
               )}
             </div>
@@ -301,9 +327,28 @@ export default function RefinementChat() {
                       <div className="mt-1 text-indigo-700/80">Suggested persona: <span className="font-medium capitalize">{view.cost.persona}</span>{typeof view.cost.refineToSave === "number" && view.cost.refineToSave > 0 && <> · refining saves ~<span className="font-mono">${view.cost.refineToSave.toFixed(3)}</span> vs a frontier default</>}</div>
                       {view.cost.overflow && <div className="mt-1 text-[11px] text-amber-700">⚠ working memory exceeds the model's context window — will need compression or RAG</div>}
                       <div className="mt-1 text-[10px] text-indigo-400 leading-snug">{view.cost.assumptions.join(" · ")}</div>
+                      {view.record.built && typeof view.record.actualCost === "number" && (
+                        <div className="mt-1.5 pt-1.5 border-t border-indigo-100 text-emerald-700 font-medium">Actual (measured on build): <span className="font-mono">${view.record.actualCost.toFixed(5)}</span></div>
+                      )}
                     </div>
                   )}
-                  {view.schema.map((s) => {
+                  {/* Clarify phase (ADR-0002): the working memory is built on approval, not shown live */}
+                  {!view.record.built && (
+                    <div className="border border-dashed border-gray-200 rounded-lg p-3 text-center">
+                      {awaitingBuild ? (
+                        <>
+                          <p className="text-xs text-gray-500 mb-2">Enough context gathered — build the working memory when you're ready.</p>
+                          <button onClick={buildMemory} disabled={building}
+                            className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5">
+                            {building ? "Building…" : <><Sparkles className="w-4 h-4" /> Build working memory</>}
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-400">The working memory builds once we've clarified enough — keep the conversation going.</p>
+                      )}
+                    </div>
+                  )}
+                  {view.record.built && view.schema.map((s) => {
                     const slot = view.record.slots[s.key];
                     const state: SlotState = slot?.state ?? "empty";
                     const isEditing = editing?.key === s.key;
@@ -339,7 +384,7 @@ export default function RefinementChat() {
             </div>
           </div>
 
-          {graphData && (graphData.topics.length > 0 || graphData.contexts.length > 0) && (
+          {view?.record.built && graphData && (graphData.topics.length > 0 || graphData.contexts.length > 0) && (
             <div className="bg-white shadow-sm border border-gray-200 rounded-2xl min-h-[220px]">
               <MiniGraph intentData={graphData} />
             </div>
