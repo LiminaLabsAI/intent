@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { InMemoryEventStore } from './store.ts';
 import { FakeLLM } from './llm.ts';
 import { runTurn, runPersonaSelection } from './turn.ts';
+import { decide } from './decide.ts';
 
 const AT = '2026-07-14T00:00:00.000Z';
 
@@ -17,12 +18,13 @@ test('first turn gates on persona; after selecting, refinement proceeds', async 
   assert.equal(res.moves[0].kind, 'select_persona', 'gate before refining');
   assert.ok(res.view.personas.length >= 1, 'picker options are provided');
   assert.equal(res.view.selectedPersona, null);
-  // user picks a mode → the agent proceeds to refine under it
+  // user picks a mode → the agent asks the outcome next (ADR-0002 amendment)
   const res2 = await runPersonaSelection(store, 'i1', 'balanced', llm, {});
   assert.equal(res2.view.record.persona, 'balanced');
-  assert.equal(res2.view.selectedPersona, 'balanced');
-  assert.notEqual(res2.moves[0].kind, 'select_persona');
-  assert.equal(res2.moves[0].kind, 'ask');
+  assert.equal(res2.moves[0].kind, 'ask_outcome');
+  // once the outcome is set, refinement proceeds
+  const rec = await store.append('i1', { kind: 'outcome_set', at: AT, by: 'user', outcome: 'plan' });
+  assert.equal(decide(rec)[0].kind, 'ask');
 });
 
 test('governance-stop path: blocked intent → governance_stop, no barrage', async () => {
@@ -43,10 +45,12 @@ test('ready intent: after picking a mode, it offers to build (ADR-0002)', async 
   });
   const res = await runTurn(store, 'i3', 'a full, detailed OAuth migration with rollback, cutover and blast radius defined', llm, { at: AT });
   assert.equal(res.moves[0].kind, 'select_persona');
-  // pick 'balanced' (medium rigor = the required set the fixture fills) → ready → offer_build (not yet built)
+  // pick 'balanced' → asks the outcome first
   const res2 = await runPersonaSelection(store, 'i3', 'balanced', llm, {});
-  assert.equal(res2.view.readiness.readiness, 'ready');
-  assert.equal(res2.moves[0].kind, 'offer_build');
+  assert.equal(res2.moves[0].kind, 'ask_outcome');
+  // set the outcome → ready (fixture fills the required set) → offer_build (not yet built)
+  const rec = await store.append('i3', { kind: 'outcome_set', at: AT, by: 'user', outcome: 'plan' });
+  assert.equal(decide(rec)[0].kind, 'offer_build');
 });
 
 test('the record is event-sourced — replay after a turn is stable', async () => {

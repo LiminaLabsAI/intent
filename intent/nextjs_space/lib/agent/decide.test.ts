@@ -6,9 +6,15 @@ import type { IntentRecord, IntentType, Risk, Slot, SlotState } from './types.ts
 
 // persona defaults to 'balanced' (→ medium rigor) so tests exercise refinement,
 // not the persona gate; pass null to test the gate itself.
-function rec(intentType: IntentType | null, slots: Record<string, Slot> = {}, rawInput = 'do a thing', persona: string | null = 'balanced'): IntentRecord {
-  return { id: 'x', version: 0, rawInput, intentType, persona, state: 'DRAFT', slots } as IntentRecord;
+function rec(intentType: IntentType | null, slots: Record<string, Slot> = {}, rawInput = 'do a thing', persona: string | null = 'balanced', outcome: string | null = 'plan'): IntentRecord {
+  return { id: 'x', version: 0, rawInput, intentType, persona, outcome, state: 'DRAFT', slots } as IntentRecord;
 }
+
+test('outcome gate: mode chosen but no outcome yet → ask_outcome', () => {
+  const m = decide(rec('CHANGE', {}, 'migrate auth', 'balanced', null));
+  assert.equal(m.length, 1);
+  assert.equal(m[0].kind, 'ask_outcome');
+});
 function slot(key: string, state: SlotState): Slot {
   return { key, value: state === 'empty' ? null : 'a sufficiently long value', state };
 }

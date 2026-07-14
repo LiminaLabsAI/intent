@@ -12,10 +12,9 @@
 - [x] Commit `feat(studio): redesign contracts + real model values` — 71/71, tsc 0
 
 ## Group 1 — Ask-to-enrich
-- [ ] `verify` → grounded gap-filling questions; assumption only on user decline
-- [ ] Plain-language narration (no internal keys; explains what it's doing/planning)
-- [ ] Early outcome/format question after mode pick → sets record.outcome/format
-- [ ] Commit `feat(agent): ask-to-enrich + outcome question`
+- [x] `verify` narration reframed → grounded question ("To get this right, is it X or Y?"); never "I assumed"
+- [x] Early outcome question: `ask_outcome` move + gate (persona set, outcome null → ask); perceive detects outcome → `outcome_set`
+- [x] Commit `feat(agent): ask-to-enrich + outcome question` — 72/72
 
 ## Group 2 — Build → OKF plan files
 - [ ] `lib/agent/okf.ts` — render PlanFile as full-spec OKF markdown (front-matter + body)

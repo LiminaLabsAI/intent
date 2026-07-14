@@ -20,6 +20,8 @@ export interface PerceptionOut {
   slots?: { key: string; value?: string | null; state?: SlotState; reason?: string; inferred?: boolean }[];
   /** The record is already complete and the user just approved handing it off. */
   handoffConfirmed?: boolean;
+  /** What the user wants produced (plan|diagram|script|doc), if they said or implied it. */
+  outcome?: string;
 }
 
 function schemaList(type: IntentType | null): string {
@@ -48,6 +50,8 @@ ACCEPTING ANSWERS (critical — do NOT re-ask an answered slot):
 
 HANDOFF: if the record is already complete (all needed slots strong) and the user's latest message approves proceeding ("yes", "ok", "that's fine", "go ahead", "hand it off", "sounds good"), set "handoffConfirmed": true. Otherwise omit it.
 
+OUTCOME: if the user says or implies what they want you to PRODUCE — a full plan, a diagram, a script/code, or a document — set "outcome" to one of: plan | diagram | script | doc. If they were asked and answered vaguely, pick the best fit from the intent (a build/app → plan; an analysis → doc). Only set it when it's genuinely indicated.
+
 Intent types: CHANGE (modify existing) · CREATE (build new) · ANALYZE (investigate) · REPORT (produce a document).
 Slot states: empty | weak (too vague for this risk) | ambiguous (>1 reading) | conflicting (contradicts another slot) | strong (adequate for this risk).
 
@@ -57,7 +61,7 @@ ${schemaList(type)}
 You WRITE the acceptance-criteria slot yourself (what the delivered result must do) — never ask the user to describe how it would be tested.
 
 Respond ONLY with JSON:
-{"intentType":"CHANGE|CREATE|ANALYZE|REPORT","risk":"low|medium|high","complexity":"trivial|moderate|complex","handoffConfirmed":false,"slots":[{"key":"<key>","value":"<value>","state":"<state>","reason":"<short>"}]}`;
+{"intentType":"CHANGE|CREATE|ANALYZE|REPORT","risk":"low|medium|high","complexity":"trivial|moderate|complex","handoffConfirmed":false,"outcome":"plan|diagram|script|doc","slots":[{"key":"<key>","value":"<value>","state":"<state>","reason":"<short>"}]}`;
 }
 
 const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'and', 'or', 'for', 'with', 'in', 'on', 'is', 'are', 'be', 'can', 'will', 'this', 'that', 'we', 'our', 'need', 'want', 'app', 'system', 'new']);
@@ -109,6 +113,9 @@ export async function perceive(
   if (out.risk && out.complexity &&
       (record.complexity === null || out.risk !== record.risk || out.complexity !== record.complexity)) {
     events.push({ kind: 'sized', at, by: 'agent', risk: out.risk, complexity: out.complexity });
+  }
+  if (out.outcome && !record.outcome) {
+    events.push({ kind: 'outcome_set', at, by: 'user', outcome: String(out.outcome) });
   }
   for (const s of out.slots ?? []) {
     if (!s || !s.key) continue;

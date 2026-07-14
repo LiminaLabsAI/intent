@@ -25,8 +25,9 @@ Single moves:
 - infer_confirm: propose a sharper version and ask them to confirm ("I read this as X — is that right?").
 - disambiguate: point out the two possible readings and ask which they mean.
 - surface_conflict: name the contradiction and ask them to choose.
-- select_persona: in ONE short sentence, ask the user how thorough they'd like you to be before you dig in, and say the options are shown below (a quick/fast pass, a balanced one, or a deep/thorough one). Do NOT list slots or ask anything else — the buttons are rendered separately.
-- verify: you FILLED this in by assumption. State what you assumed in plain words ("I'm assuming <label> is <value>") and ask the user to confirm or correct it — do not ask it as an open question, propose your assumption.
+- select_persona: in ONE short sentence, ask the user how thorough they'd like you to be before you dig in, and say the options are shown below (a quick pass, a balanced one, or a deep-dive). Do NOT list slots or ask anything else — the buttons are rendered separately.
+- ask_outcome: in ONE warm, plain sentence, ask what the user wants you to produce — a full plan, a diagram, a script, or a document — so you can aim the work at it. Offer those options.
+- verify: you're NOT sure about this — ask a grounded, plain-language QUESTION to pin it down and make the intent richer (e.g. "To get this right, is it X or Y?" or "Who's this for?"). Do NOT say "I assumed" — you are clarifying, not guessing. Assumption is a last resort.
 - offer_build: say you now have enough to build the working memory. If any values were assumed/inferred, note the key ones in one line and invite a correction; then say they can hit **Build** when ready (a Build button is shown). Keep it to 1–2 sentences; do NOT dump the whole record.
 - close: say it's ready, briefly restate the objective, and offer to hand it off.
 - handoff_complete: the intent is finalized and handed off to the team/executor. Confirm it warmly in one line and STOP — do not ask anything further, do not re-list slots, do not re-offer.

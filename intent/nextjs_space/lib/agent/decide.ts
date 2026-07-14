@@ -17,6 +17,7 @@ import { personaToRigor } from './cost-config.ts';
 export type MoveKind =
   | 'governance_stop'
   | 'select_persona'
+  | 'ask_outcome'
   | 'ask'
   | 'infer_confirm'
   | 'disambiguate'
@@ -82,6 +83,12 @@ export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium
   // the mode BEFORE the agent refines — the choice governs the rigor below.
   if (record.intentType && !record.persona) {
     return [{ kind: 'select_persona', rationale: 'user chooses the refinement/execution mode before we go deeper' }];
+  }
+
+  // OUTCOME GATE (ADR-0002 amendment): ask early what deliverable the user wants
+  // (plan / diagram / script / doc) so clarify + build aim at it.
+  if (record.persona && !record.outcome) {
+    return [{ kind: 'ask_outcome', rationale: 'ask what the user wants produced so the build matches' }];
   }
 
   // The chosen persona drives refinement rigor (overrides the auto-assessed risk).
