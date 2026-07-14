@@ -57,3 +57,19 @@ The only real difference is what fills `input_tokens`, and that IS the V1/V2 spl
 **Harder / changes from today:** the UI must **hide the working-memory panel during Clarify** and reveal it on Build (today it fills live); we add a **Build action** (a dedicated analysis run) and **actual-cost capture** (LLM usage). The agent must **narrate inferred slots as verification questions** during Clarify.
 
 **Deferred deliberately:** RAG/memory-architecture, overflow→RAG, per-profile model tiers + live pricing, provider payload translation (all V2); execution agent + per-user precedent (future).
+
+## Amendment — 2026-07-15: Studio experience redesign (Phase 13), from live testing
+
+Testing Phase 12 in the Studio surfaced UX corrections that **reverse three decisions above**. Recorded here; built in Phase 13 (`phase-13-studio-redesign`).
+
+- **Clarify posture: ask-to-enrich, not assume-then-verify.** The agent's job is to *clarify* — proactively ask the grounded questions that fill gaps and make the intent + context richer (users often don't know what they want yet). Assumption is the last resort. The `verify` move becomes a gap-filling *question* move. This grounds the plan and cuts hallucination.
+- **Plain language, not jargon.** Business users don't know "entities"/"acceptance criteria". Relabel the (unchanged) layered schema: *entities → "what's involved"*, *acceptance_criteria → "how we'll know it's done"*, etc. Keep spine + templates + emergent.
+- **Understanding fields update LIVE** during the conversation (reverses "empty until build") — the user watches the intent take shape.
+- **Build is ALWAYS available** (reverses "gated at 🟢"), status-coloured amber-when-thin → green-when-ready; the user stays in control even with thin context.
+- **Build writes the deliverable as files** (reverses "materialize the fields"): 1+ **OKF markdown files** (Google Open Knowledge Format, **full spec compliance**, versioned), **named by the outcome** (`diagram.md`, `plan.md`, `script.md`, …), viewable + downloadable; the graph is built too. The separate PRD/Plan buttons are removed — Build does that job.
+- **Outcome/format asked early** ("full plan / diagram / script / doc") so the files match — generalized for any business use case, not code.
+- **Layout:** status + **mode** + cost (est→actual) live in a **top strip** (not inside "Artifacts", which is files-only); the right column splits into **Understanding** (live fields) and **Artifacts** (files). The selected **mode persists visibly** the whole session.
+- **Personas renamed** for enterprise legibility: **Quick / Balanced / Deep-dive** (was fast/balanced/thorough).
+- **Real model values:** seed `CostModel` with real DeepInfra / DeepSeek V4 Flash prices + context window. Estimate = directional; actual = measured usage × real prices (file a bug if actual doesn't reconcile).
+
+**Unchanged:** the pure cost function, config-as-data, the persona-as-user-choice gate, the layered schema itself, and the V2/Future deferral.
