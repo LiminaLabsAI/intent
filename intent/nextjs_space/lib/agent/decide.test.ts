@@ -51,6 +51,13 @@ test('a conflict pre-empts open gaps', () => {
   assert.equal(m[0].slot, 'scope');
 });
 
+test('clarify surfaces inferred-strong slots as verify moves alongside gaps', () => {
+  const r = rec('CHANGE', { objective: { key: 'objective', value: 'an inferred objective', state: 'strong', inferred: true } });
+  const m = decide(r);
+  assert.ok(m.some((x) => x.kind === 'verify' && x.slot === 'objective'), 'assumed slot surfaced to verify');
+  assert.ok(m.some((x) => x.kind === 'ask'), 'still asks the remaining gaps');
+});
+
 test('all required strong, not built → offer_build (ADR-0002 gate)', () => {
   assert.equal(decide(allRequiredStrong('CHANGE', 'medium'), 'medium')[0].kind, 'offer_build');
 });

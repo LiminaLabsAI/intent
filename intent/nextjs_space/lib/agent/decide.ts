@@ -22,6 +22,7 @@ export type MoveKind =
   | 'disambiguate'
   | 'surface_conflict'
   | 'split'
+  | 'verify'
   | 'offer_build'
   | 'close'
   | 'handoff_complete';
@@ -108,5 +109,14 @@ export function decide(record: IntentRecord, risk: Risk = record.risk ?? 'medium
   const gaps = report.gaps
     .slice()
     .sort((a, b) => stateRank(a.state) - stateRank(b.state) || priority(a.key) - priority(b.key));
-  return gaps.map((g) => ({ kind: moveForState(g.state), slot: g.key, rationale: `gap: '${g.key}' is ${g.state}` }));
+  const gapMoves: Move[] = gaps.map((g) => ({ kind: moveForState(g.state), slot: g.key, rationale: `gap: '${g.key}' is ${g.state}` }));
+
+  // VERIFY (ADR-0002): during clarify, surface the agent's own inferred slots so
+  // the user can confirm/correct them — the assumption-reduction the build depends on.
+  const verifyMoves: Move[] = Object.values(record.slots)
+    .filter((s) => s.state === 'strong' && s.inferred)
+    .sort((a, b) => priority(a.key) - priority(b.key))
+    .map((s) => ({ kind: 'verify' as MoveKind, slot: s.key, rationale: `assumed '${s.key}' — confirm or correct` }));
+
+  return [...gapMoves, ...verifyMoves];
 }

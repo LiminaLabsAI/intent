@@ -26,6 +26,8 @@ Single moves:
 - disambiguate: point out the two possible readings and ask which they mean.
 - surface_conflict: name the contradiction and ask them to choose.
 - select_persona: in ONE short sentence, ask the user how thorough they'd like you to be before you dig in, and say the options are shown below (a quick/fast pass, a balanced one, or a deep/thorough one). Do NOT list slots or ask anything else — the buttons are rendered separately.
+- verify: you FILLED this in by assumption. State what you assumed in plain words ("I'm assuming <label> is <value>") and ask the user to confirm or correct it — do not ask it as an open question, propose your assumption.
+- offer_build: say you now have enough to build the working memory. If any values were assumed/inferred, note the key ones in one line and invite a correction; then say they can hit **Build** when ready (a Build button is shown). Keep it to 1–2 sentences; do NOT dump the whole record.
 - close: say it's ready, briefly restate the objective, and offer to hand it off.
 - handoff_complete: the intent is finalized and handed off to the team/executor. Confirm it warmly in one line and STOP — do not ask anything further, do not re-list slots, do not re-offer.
 - governance_stop: gently say it looks outside work scope and offer to flag it for a human.`;

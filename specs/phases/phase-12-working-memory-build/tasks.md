@@ -16,9 +16,9 @@
 - [x] Commit `feat(agent): build run + actual-cost capture` — 70/70
 
 ## Group 2 — Clarify: verify assumptions
-- [ ] Narrate inferred-strong slots as confirm/edit prompts (one batch)
-- [ ] Inferred-verify signal to Narrate (doesn't block readiness)
-- [ ] Commit `feat(agent): verify assumptions in clarify`
+- [x] Narrate inferred-strong slots as confirm/edit prompts (`verify` move, one batch)
+- [x] `verify` moves appended to the gap batch; offer_build narration notes assumptions
+- [x] Commit `feat(agent): verify assumptions in clarify` — 71/71
 
 ## Group 3 — Studio UI
 - [ ] Hide working-memory panel until `built`; readiness status prominent during clarify

@@ -32,6 +32,14 @@ Detail: Added `record.built`/`actualCost` + `built` event (events.ts apply); `of
 
 ---
 
+### [NOTE] 2026-07-15 — Groups 1 + 2 landed (build run + assumption verification)
+Topics: build-run, actual-cost, verify, assumptions
+Affects-phases: phase-12-working-memory-build
+Affects-specs: none
+Detail: G1 — `runBuild` (build.ts) composes the final working memory in one usage-capturing pass, marks slots strong, stamps `actualCost = usage × persona-model price`; turn route `{build:true}` action; idempotent. G2 — a `verify` move: DECIDE appends verify moves for inferred-strong slots to the clarify batch, and offer_build narration notes the assumptions — so the agent surfaces what it assumed for the user to confirm/correct (the assumption-reduction the build depends on). 71/71.
+
+---
+
 ### [NOTE] 2026-07-15 — Phase 11 organically outgrew its spec; this phase captures the overflow
 Topics: phase-11, phase-12, planning
 Affects-phases: phase-12-working-memory-build
