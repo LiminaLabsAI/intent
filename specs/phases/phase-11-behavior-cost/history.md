@@ -36,6 +36,18 @@ Affects-phases: phase-11-behavior-cost
 Affects-specs: specs/vision/product-design.md#3.11
 Detail: The `inferred` badge (which values the agent supplied vs the user stated) is derived deterministically — a value is inferred when <25% of its content words trace to anything the user actually said. We do NOT trust the model's `inferred` flag: DeepSeek V4 Flash swung from flagging nothing to flagging everything under prompt pressure. Provenance is a fact about the input, so it belongs on a deterministic rail — the exact "deterministic systems a probabilistic agent runs on" principle. Persisted on `Slot.inferred` via the `slot_valued` event; a later user edit clears the flag.
 
+### [DISCOVERY] 2026-07-14 — Three behavior bugs surfaced in /refine testing
+Topics: behavior, right-sizing, termination, deferral
+Affects-phases: phase-11-behavior-cost
+Affects-specs: specs/vision/product-design.md#3.11
+Detail: Real user session exposed (1) turn.ts passing hardcoded 'medium' to decide/materialize, silently defeating the risk-weighted requiredness built in G0 — the assessed risk was decorative; (2) a deferral ("I have no tech stack, you choose") judged as a weak gap and re-asked verbatim every turn — the loop resurfacing in a subtler form; (3) no terminal state, so an at-Ready "yes" re-offered the handoff forever. All three are the same "accept answers + terminate" theme. Fixed: honor record.risk; treat deferral/decline as a strong decision; add DRAFT→IN_PROGRESS→APPROVED handoff with a decide() short-circuit to `handoff_complete`.
+
+### [ARCH_CHANGE] 2026-07-14 — Artifact (PRD/Plan) surface = streaming slide-over drawer
+Topics: studio, ui, artifacts, ux
+Affects-phases: phase-11-behavior-cost
+Affects-specs: none
+Detail: PRD/Plan previously rendered inside the record column, burying the working memory (the studio's centerpiece) and overflowing. User decision: a slide-over drawer that overlays the studio (working memory stays intact), streaming markdown live, with PRD/Plan tabs + download. Also installed @tailwindcss/typography — the `prose` classes were inert so markdown had been rendering flat.
+
 ### [EVALUATOR] 2026-07-14 — Phase 11 acceptance verified live (DeepSeek V4 Flash)
 Topics: verification, behavior, cost, termination
 Affects-phases: phase-11-behavior-cost
