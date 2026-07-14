@@ -42,6 +42,26 @@ export type Risk = 'low' | 'medium' | 'high';
 /** Whether a slot must be `strong` for readiness. Varies by intent-type × risk. */
 export type Requiredness = 'required' | 'recommended' | 'optional';
 
+/** How much work the intent implies — drives right-sized rigor (§3.11). */
+export type Complexity = 'trivial' | 'moderate' | 'complex';
+
+/** The cheap up-front sizing of an intent (§3.11 step 1). */
+export interface ComplexityAssessment {
+  risk: Risk;
+  complexity: Complexity;
+  rationale?: string;
+}
+
+/** Pre-execution cost advisory — a RANGE, never a bill (§5.2). */
+export interface CostEstimate {
+  low: number;
+  high: number;
+  currency: string;
+  persona: string;
+  assumptions: string[];
+  refineToSave?: number;
+}
+
 // ── Schema (§3.8 layered: spine · template · emergent) ───────────────────────
 export type SlotLayer = 'spine' | 'template' | 'emergent';
 
@@ -93,7 +113,8 @@ export type IntentEvent =
   | (EventBase & { kind: 'slot_added'; def: SlotDef })
   | (EventBase & { kind: 'slot_valued'; key: SlotKey; value: string })
   | (EventBase & { kind: 'slot_assessed'; key: SlotKey; state: SlotState; reason?: string; evidence?: string[] })
-  | (EventBase & { kind: 'transitioned'; to: LifecycleState });
+  | (EventBase & { kind: 'transitioned'; to: LifecycleState })
+  | (EventBase & { kind: 'sized'; risk: Risk; complexity: Complexity; rationale?: string });
 
 export type EventKind = IntentEvent['kind'];
 
@@ -110,6 +131,9 @@ export interface IntentRecord {
   version: number;
   rawInput: string;
   intentType: IntentType | null;
+  /** Right-sizing inputs (§3.11) — default medium/null until Perceive sizes it. */
+  risk: Risk;
+  complexity: Complexity | null;
   state: LifecycleState;
   /** Materialized slots, keyed by slot key. */
   slots: Record<SlotKey, Slot>;

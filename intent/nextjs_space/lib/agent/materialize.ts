@@ -35,10 +35,11 @@ export interface RecordView {
 export async function materializeRecord(
   store: IntentEventStore,
   id: string,
-  risk: Risk = 'medium',
+  riskOverride?: Risk,
 ): Promise<RecordView | null> {
   const record = await store.load(id);
   if (!record) return null;
+  const risk: Risk = riskOverride ?? record.risk ?? 'medium';
   const readiness = assessReadiness(record, risk);
   const schema: SlotSummary[] = resolveSchema(record.intentType).map((d) => ({
     key: d.key,

@@ -32,7 +32,7 @@ export interface ReadinessReport {
  *   🟡 actionable  — objective is `strong` and nothing conflicts, but a required slot is still weak/empty
  *   🔴 vague       — objective not `strong`, or any slot conflicts
  */
-export function assessReadiness(record: IntentRecord, risk: Risk = 'medium'): ReadinessReport {
+export function assessReadiness(record: IntentRecord, risk: Risk = record.risk ?? 'medium'): ReadinessReport {
   const schema = resolveSchema(record.intentType);
   const required = schema.filter((d) => requirednessOf(d, risk) === 'required');
 

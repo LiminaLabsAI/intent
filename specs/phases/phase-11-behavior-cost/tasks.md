@@ -3,10 +3,10 @@
 > `[ ]` todo · `[/]` in-progress · `[x]` done. Verify: `cd intent/nextjs_space && npm test`.
 
 ## Group 0 — Contracts + risk sizing + right-sizing
-- [ ] `ComplexityAssessment` + `CostEstimate` types
-- [ ] Perceive emits risk/complexity assessment; stored on the record
-- [ ] Requiredness / readiness resolve by the assessed risk (risk-scoped required set)
-- [ ] Commit `feat(behavior): risk assessment + risk-weighted requiredness`
+- [x] `ComplexityAssessment` + `CostEstimate` types; `sized` event; `record.risk`/`complexity`
+- [/] Perceive emits risk/complexity assessment → folded into Group 1 (same Perceive call)
+- [x] Requiredness / readiness resolve by the assessed risk (`assessReadiness`/`materializeRecord` use `record.risk`) — test added
+- [x] Commit `feat(behavior): risk assessment + risk-weighted requiredness`
 
 ## Group 1 — Infer-first + batch DECIDE + termination
 - [ ] Perceive proposes inferable slots (flag inferred) + judges good-enough-for-risk

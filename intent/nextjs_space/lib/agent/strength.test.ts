@@ -71,3 +71,12 @@ test('detectContradictions finds an out-of-scope item echoed in scope', () => {
   });
   assert.deepEqual(detectContradictions(r), ['the auth service']);
 });
+
+test('readiness right-sizes by the record risk (Phase 11)', () => {
+  const strong = (keys: string[]) => Object.fromEntries(keys.map((k) => [k, slot(k, 'strong')]));
+  const base = rec('CHANGE', strong(['objective', 'scope', 'entities']));
+  // low risk → only objective/scope/entities required → ready in this small set
+  assert.equal(assessReadiness({ ...base, risk: 'low' }).readiness, 'ready');
+  // high risk → context/acceptance/rollback/… also required → not ready
+  assert.notEqual(assessReadiness({ ...base, risk: 'high' }).readiness, 'ready');
+});
