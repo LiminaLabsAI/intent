@@ -16,9 +16,9 @@
 - [x] Commit `feat(behavior): infer-first + batch DECIDE`
 
 ## Group 2 — Cost machine (pure)
-- [ ] `lib/agent/cost.ts` — input tokens · output estimate · price catalog · personas · estimateCost(range) · recommendPersona · refineToSave
-- [ ] Unit tests — ranges, no false precision
-- [ ] Commit `feat(cost): pre-execution advisory`
+- [x] `lib/agent/cost.ts` — input tokens · output estimate · price catalog · personas · estimateCost(range) · recommendPersona · refineToSave
+- [x] Unit tests — ranges, no false precision (6/6)
+- [x] Commit `feat(cost): pre-execution advisory`
 
 ## Group 3 — Wire batch + cost into UI
 - [ ] Narrate composes the batch message (inferred + all gaps, one message)
