@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
-import { getStore, getLLM, runTurn, runPersonaSelection, runBuild, materializeRecord } from '@/lib/agent';
+import { getStore, getLLM, runTurn, runPersonaSelection, runBuild, runRefine, createDraft, materializeRecord } from '@/lib/agent';
 import { createIntentHeader, isHeaderBound, syncIntentHeader, saveTranscript } from '@/lib/agent/intent-header.ts';
 import type { ChatTurn } from '@/lib/agent/types.ts';
 
@@ -88,9 +88,49 @@ export async function POST(req: NextRequest) {
       id = requesterId ? await createIntentHeader(requesterId, message) : genId();
     }
 
-    const result = await runTurn(store, id, message, getLLM(), { risk, history });
+    // PHASE 14: if the record is already built, the message is a REFINE request
+    // (cyclic refinement loop, ADR-0003). Instead of perceive→decide→narrate,
+    // run the refine engine + persist an immutable BundleVersion DRAFT.
+    const existingRecord = await store.load(id);
+    if (existingRecord?.built) {
+      try {
+        const { record: refinedRec, files, label, diff, actualCost, understanding } = await runRefine(
+          store, id!, getLLM(), { refineRequest: message, by: 'user' },
+        );
+        await createDraft(id!, files, {
+          label,
+          understanding,
+          costActual: { amount: actualCost, currency: 'USD' },
+          personaLabel: refinedRec.persona ?? undefined,
+          outcome: refinedRec.outcome ?? undefined,
+          by: 'user',
+        });
+        const changed = diff.filter((d) => d.status === 'changed').map((d) => d.path);
+        const refineReply = changed.length > 0
+          ? `Updated ${changed.join(', ')}. Review the changes — Publish when you're happy.`
+          : 'No changes needed — the deliverable already reflects this.';
+        const view = await materializeRecord(store, id!);
+        const refineTranscript: ChatTurn[] = [
+          ...historyFull,
+          { role: 'user', content: message },
+          { role: 'agent', content: refineReply },
+        ];
+        if (isHeaderBound(id!)) {
+          await Promise.all([
+            syncIntentHeader(id!, view!).catch(() => {}),
+            saveTranscript(id!, refineTranscript).catch(() => {}),
+          ]);
+        }
+        return NextResponse.json({ id, moves: [{ kind: 'refine', rationale: label }], reply: refineReply, view });
+      } catch (e) {
+        console.error('[agent/turn] refine error:', e);
+        // Fall through to normal turn if refine fails
+      }
+    }
 
-    if (isHeaderBound(id)) {
+    const result = await runTurn(store, id!, message, getLLM(), { risk, history });
+
+    if (isHeaderBound(id!)) {
       // Persist the FULL transcript (FEAT-001) so a reload restores the whole conversation.
       const transcript: ChatTurn[] = [
         ...historyFull,

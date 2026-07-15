@@ -25,6 +25,7 @@ export type MoveKind =
   | 'split'
   | 'verify'
   | 'offer_build'
+  | 'refine'
   | 'close'
   | 'handoff_complete';
 

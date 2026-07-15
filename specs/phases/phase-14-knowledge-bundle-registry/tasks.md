@@ -18,13 +18,13 @@
   - [x] Shareable app route `/i/[intId]/v[n]` (and `/i/[intId]` → latest) — RBAC-gated read-only
   - [x] Autogen `log.md` inside published bundles (OKF-conformant)
 
-- [ ] **Group 2: Refinement engine (parallel w/ G1)**
-  - [ ] `runRefine(parent, refineRequest, conceptPath?)` (full + targeted)
-  - [ ] Per-concept content-hash diff → "what changed" (added/changed/unchanged/removed)
-  - [ ] `label` = refine-request text (truncated; user-editable on publish)
-  - [ ] Agent perceive: detect post-build state → add `refine` move to DECIDE; narrate per-concept diff
-  - [ ] Actual-cost capture per refine run (ADR-0002 reuse)
-  - [ ] Unit (Fake): delta composition, hash-diff, label; live: one refine run on the real model
+- [x] **Group 2: Refinement engine (parallel w/ G1)**
+  - [x] `runRefine(parent, refineRequest, conceptPath?)` (full + targeted)
+  - [x] Per-concept content-hash diff → "what changed" (added/changed/unchanged/removed)
+  - [x] `label` = refine-request text (truncated; user-editable on publish)
+  - [x] Agent perceive: detect post-build state → add `refine` move to DECIDE; narrate per-concept diff
+  - [x] Actual-cost capture per refine run (ADR-0002 reuse)
+  - [x] Unit (Fake): delta composition, hash-diff, label; live: one refine run on the real model
 
 - [ ] **Group 3: Studio UI (sequential; after G1+G2)**
   - [ ] Drafts & Versions drawer (draft trail + published rows + status chips + latest badge)

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { InMemoryEventStore } from './store.ts';
 import { FakeLLM } from './llm.ts';
-import { runBuild } from './build.ts';
+import { runBuild, runRefine, fileDiff } from './build.ts';
 
 const AT = '2026-07-15T00:00:00.000Z';
 
@@ -92,4 +92,64 @@ test('runBuild with force regenerates — new files overwrite on replay (point 5
   assert.notEqual(second.version, first.version, 'force appends a fresh plan_built');
   assert.equal(second.files.length, 1);
   assert.match(second.files[0].content, /# Plan v2 \(revised\)/, 'rebuilt files replace the old ones on replay');
+});
+
+// ── Phase 14: runRefine (cyclic refinement) ──────────────────────────────────
+
+test('runRefine generates new files + computes diff (full re-build)', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'r1', 'quick', 'plan');
+  const buildLlm = new FakeLLM({ structs: [{ files: [{ name: 'plan.md', format: 'plan', body: '# Plan\n\nOriginal.' }] }] });
+  await runBuild(store, 'r1', buildLlm, { at: AT });
+  const refineLlm = new FakeLLM({ structs: [{ files: [{ name: 'plan.md', format: 'plan', body: '# Plan\n\nOriginal.\n\n## Risk\n\nSomething.' }] }] });
+  const result = await runRefine(store, 'r1', refineLlm, { refineRequest: 'add a risk section', at: AT });
+  assert.equal(result.files.length, 1);
+  assert.equal(result.label, 'add a risk section');
+  assert.equal(result.diff.length, 1);
+  assert.equal(result.diff[0].path, 'plan.md');
+  assert.equal(result.diff[0].status, 'changed');
+});
+
+test('runRefine throws if not yet built', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'r2', 'quick', 'plan');
+  const llm = new FakeLLM({ structs: [{ files: [{ name: 'plan.md', format: 'plan', body: '# Plan' }] }] });
+  await assert.rejects(() => runRefine(store, 'r2', llm, { refineRequest: 'change it', at: AT }), /NOT_YET_BUILT/);
+});
+
+test('runRefine targeted update — only regenerates the named concept', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'r3', 'balanced', 'plan');
+  const buildLlm = new FakeLLM({ structs: [{ files: [
+    { name: 'plan.md', format: 'plan', body: '# Plan' },
+    { name: 'diagram.md', format: 'diagram', body: '```mermaid\ngraph A\n```' },
+  ] }] });
+  await runBuild(store, 'r3', buildLlm, { at: AT });
+  // Refine: only regenerate diagram.md
+  const refineLlm = new FakeLLM({ structs: [{ files: [{ name: 'diagram.md', format: 'diagram', body: '```mermaid\ngraph A-->B\n```' }] }] });
+  const result = await runRefine(store, 'r3', refineLlm, { refineRequest: 'add B to the diagram', conceptPath: 'diagram.md', at: AT });
+  assert.equal(result.files.length, 2, 'both files present (parent plan.md + new diagram.md)');
+  assert.equal(result.files.find((f) => f.name === 'plan.md').format, 'plan');
+  assert.equal(result.files.find((f) => f.name === 'diagram.md').format, 'diagram');
+  const diagramDiff = result.diff.find((d) => d.path === 'diagram.md');
+  assert.equal(diagramDiff.status, 'changed');
+  const planDiff = result.diff.find((d) => d.path === 'plan.md');
+  assert.equal(planDiff.status, 'unchanged', 'plan.md not touched by targeted refine');
+});
+
+test('fileDiff computes added/changed/unchanged/removed', () => {
+  const fileA = (name: string, content: string) => ({ name, format: 'plan', content: `---\ntype: plan\n---\n\n${content}` });
+  const old = [fileA('plan.md', 'old'), fileA('removed.md', 'gone')];
+  const nw = [fileA('plan.md', 'new'), fileA('added.md', 'new')];
+  const diff = fileDiff(old, nw);
+  assert.equal(diff.length, 3);
+  assert.equal(diff.find((d) => d.path === 'plan.md').status, 'changed');
+  assert.equal(diff.find((d) => d.path === 'removed.md').status, 'removed');
+  assert.equal(diff.find((d) => d.path === 'added.md').status, 'added');
+});
+
+test('fileDiff reports unchanged for identical content', () => {
+  const f = (name: string) => ({ name, format: 'plan', content: `---\ntype: plan\n---\n\nsame` });
+  const diff = fileDiff([f('plan.md')], [f('plan.md')]);
+  assert.equal(diff[0].status, 'unchanged');
 });

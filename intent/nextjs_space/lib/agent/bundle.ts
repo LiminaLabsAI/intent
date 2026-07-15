@@ -54,10 +54,8 @@ export interface BundleView {
   published: BundleVersionView[];
 }
 
-export interface ConceptDiff {
-  path: string;
-  status: 'added' | 'changed' | 'unchanged' | 'removed';
-}
+import type { ConceptDiff } from './build.ts';
+export type { ConceptDiff };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
