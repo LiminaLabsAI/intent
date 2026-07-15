@@ -18,3 +18,10 @@ entry carries matching `Topics:`.
 | personas | specs/vision/product-design.md | #5.2 |
 | reference-class | specs/decisions/0001-configurable-cost-estimator.md | (whole) |
 | calibration | specs/decisions/0001-configurable-cost-estimator.md | (whole) |
+| okf | specs/vision/product-design.md | #5.1 |
+| okf | specs/decisions/0003-knowledge-bundle-registry.md | (whole) |
+| registry | specs/vision/product-design.md | #4.6 |
+| registry | specs/decisions/0003-knowledge-bundle-registry.md | (whole) |
+| versioning | specs/decisions/0003-knowledge-bundle-registry.md | (whole) |
+| bundles | specs/decisions/0003-knowledge-bundle-registry.md | (whole) |
+| refine-engine | specs/decisions/0003-knowledge-bundle-registry.md | (whole) |

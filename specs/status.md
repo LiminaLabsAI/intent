@@ -5,7 +5,7 @@ type: Status
 # Project Status
 
 > **Last Updated**: 2026-07-15
-> **Current Phase**: _(none — Phase 13 released)_
+> **Current Phase**: Phase 14 — Knowledge Bundle Registry & Cyclic Refinement (brainstormed, awaiting `/start-phase`)
 > **Latest Release**: v0.3.0 — Studio Experience Redesign (Phases 12 + 13; ask-to-enrich · OKF build · cost engine)
 > **Health**: On Track
 
@@ -40,6 +40,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
+| 14 | phase-14-knowledge-bundle-registry | Brainstormed | Not started — `/start-phase` to begin |
 
 ## Upcoming Phases
 
@@ -47,6 +48,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 |-------|------|--------|-----------------|
 | 4 | SSE Optimizations | Not Started | Re-evaluating stage 2-6 streaming error handling and auto-reconnections |
 | 5 | Agentic Dispatch | Paused | Execution pipeline parsing output files to downstream subagents |
+| 14 | Knowledge Bundle Registry & Cyclic Refinement | Brainstormed (ADR-0003) | OKF versioned bundles · publish · supersede · restore · cyclic refine loop · shareable `/i/INT-0007/vN` |
 
 ## Blockers
 
@@ -62,7 +64,8 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 ## Next Actions
 
-1. Implement Group 0 of Phase 1 (Schema & Vector DB)
+1. Run `/start-phase` to begin Phase 14 (Knowledge Bundle Registry & Cyclic Refinement) — ADR-0003 + phase directory in place
+2. Implement Group 0 of Phase 1 (Schema & Vector DB)
 
 ## Key Decisions Made
 
