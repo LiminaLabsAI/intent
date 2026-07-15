@@ -16,6 +16,14 @@ Detail: Live review surfaced misses: status·mode·cost were still in Artifacts 
 
 ---
 
+### [DISCOVERY] 2026-07-15 — Production build hardening: timeout (BUG-008) + incomplete-plan regression (BUG-009)
+Topics: build, llm, json, serverless, vercel, production
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: After merging to main/prod, two build issues surfaced. BUG-008: the build route had no `maxDuration`, so its ~14s LLM call hit Vercel's default serverless timeout (killed mid-request) — fixed with `export const maxDuration = 60` on `/api/agent/turn`. BUG-009 (regression from BUG-007): `extractJson`'s fence-stripping regex `/```…```/` matched the FIRST inner code fence when a plan body contained ``` blocks (API examples, mermaid) and sliced the JSON mid-body — so builds threw MODEL_OUTPUT_UNPARSEABLE or repair salvaged a truncated plan (cut at "Request Body: `{"). Diagnosed by calling the real DeepSeek model directly: it returns a COMPLETE plan (finish=stop, contains ``` fences); the parser was discarding it. Fixed by slicing first `{` → last `}` (spans the whole object regardless of inner/wrapping fences); +3 regression tests, 82/82, live-verified. Also filed ENH-003: the build prompt is persona-agnostic, so Deep-Dive isn't deeper than Quick — thread rigor into the build prompt (next phase). Lesson: don't add speculative input-cleaning (the fence-strip) — it introduced a worse bug than the one it targeted; the original first-{/last-} slice was correct.
+
+---
+
 ### [DISCOVERY] 2026-07-15 — Build JSON truncation (BUG-007) + no raw errors on the UI
 Topics: build, llm, tokens, json, error-handling, ux
 Affects-phases: phase-13-studio-redesign
