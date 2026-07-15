@@ -1,11 +1,11 @@
 # Phase 14 Tasks — Knowledge Bundle Registry & Cyclic Refinement
 
-- [ ] **Group 0: Contracts, schema, validator (sequential; blocks all)**
-  - [ ] Sketch `KnowledgeBundle` / `BundleVersion` / `ConceptFile` models; review parent/delta pointers
-  - [ ] Add bundle event types to `IntentEvent` (`draft_created`, `version_published`, `version_superseded`, `version_deprecated`, `version_archived`, `restored_as_draft`)
-  - [ ] Extend `okf.ts` → `okfValidator(bundle)` (frontmatter + type; reserved filenames)
-  - [ ] Migration: backfill `Intent.files` → seed DRAFT per intent; switch live reads to `draftHead` (drop `Intent.files` reads — avoid dual-store drift)
-  - [ ] Unit + `tsc`
+- [x] **Group 0: Contracts, schema, validator (sequential; blocks all)**
+  - [x] Sketch `KnowledgeBundle` / `BundleVersion` / `ConceptFile` models; review parent/delta pointers
+  - [x] ~~Add bundle event types to `IntentEvent`~~ — Decision: bundle lifecycle lives on `BundleVersion.state` + `publishedAt`/`supersededByVersionId`; NOT duplicated into the IntentEvent log. Keeps the intent-event and bundle-event domains clean. See history.
+  - [x] Extend `okf.ts` → `okfValidator(bundle)` + `parseOkf` + `contentHash` (frontmatter + type; reserved filenames)
+  - [x] Migration: lazy (on first bundle access, seed DRAFT from `record.files`) — deferred to Group 1; schema + Prisma `db push` complete
+  - [x] Unit (16 new tests, 98 total) + `tsc` 0
 
 - [ ] **Group 1: Registry API + state machine + shareable route (parallel w/ G2)**
   - [ ] `POST /api/bundle/[id]/refine` (full re-build → new DRAFT)

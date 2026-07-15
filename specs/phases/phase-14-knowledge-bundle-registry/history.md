@@ -63,3 +63,17 @@ Affects-specs: specs/backlog/backlog.md (ENH-003)
 Detail: ENH-003 (mode-scaled build depth — Deep-Dive should produce a deeper bundle than Quick) also touches the build/refine prompt we're now re-touching. Folding it in here is cheap but expands phase scope; left explicit as a non-goal, recommended as a `/hotfix` quick-task before or after this phase (Rule 14 — the lightest work type that fits). Not lost; just sequenced out to keep this phase focused.
 
 ---
+
+### [NOTE] 2026-07-15 — Group 0 (contracts + schema + validator) landed
+Topics: prisma, okf, schema, validator
+Affects-phases: phase-14-knowledge-bundle-registry
+Affects-specs: none
+Detail: Group 0 complete. Added three Prisma models — `KnowledgeBundle` (1:1 Intent, `draftHeadVersionId` + `latestPublishedVersionId`), `BundleVersion` (immutable; `versionNo Int?`, `state BundleVersionState` enum DRAFT/PUBLISHED/SUPERSEDED/DEPRECATED/ARCHIVED, `parentVersionId` self-relation for lineage, `supersededByVersionId` self-relation for supersession chain, `label`, `understandingSnapshot Json`, `costActual Json?`, `personaLabel`, `outcome`, `createdById`, `builtAt`, `publishedAt?`), `ConceptFile` (`versionId`, `path`, `contentHash`, `frontmatter Json`, `body`, `okfType`, unique `[versionId, path]`). New `BundleVersionState` enum. Schema pushed to Neon via `prisma db push`. Extended `okf.ts` with `parseOkf` (frontmatter parser — minimal, dep-free), `contentHash` (sha256), and `okfValidator` (OKF §9 conformance: every concept needs frontmatter + non-empty `type`; reserved `index.md`/`log.md` must not have frontmatter). 16 new tests (98 total), tsc 0.
+
+---
+
+### [DECISION] 2026-07-15 — Bundle lifecycle events live on BundleVersion, not in IntentEvent
+Topics: events, schema, architecture
+Affects-phases: phase-14-knowledge-bundle-registry
+Affects-specs: none
+Detail: The brainstorm draft listed "Add bundle event types to `IntentEvent`" (`draft_created`, `version_published`, etc.). On implementation, decided NOT to duplicate bundle lifecycle events into the intent event log. Rationale: the `BundleVersion` model IS the audit record — its `state` column, `publishedAt`, `supersededByVersionId`, `createdById`, and `builtAt` fields capture everything a bundle event would. Adding them to `IntentEvent` would duplicate the same information in two places (the intent event log and the bundle version table). The `IntentEvent` log stays focused on the intent's refinement lifecycle (slots, build, transitions). The plan_built event continues to fire for each refine run (it captures files + cost for the current state view); the non-destructive history is handled by `BundleVersion`/`ConceptFile` rows, which are the durable record. The brainstorm task was marked done with a strikethrough note.

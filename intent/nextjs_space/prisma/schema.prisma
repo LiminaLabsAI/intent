@@ -143,6 +143,7 @@ model Intent {
   reviewTasks         ReviewTask[]
   comments            Comment[]
   auditLogs           AuditLog[]
+  bundle              KnowledgeBundle?
   
   // Knowledge Graph Relations
   topics              TopicToIntent[]
@@ -389,4 +390,89 @@ model CostObservation {
   createdAt DateTime @default(now())
 
   @@index([refClass])
+}
+
+// ── Phase 14: Knowledge Bundle Registry (ADR-0003) ───────────────────────────
+// The built deliverable graduates from a destructive scratch field to a
+// first-class, versioned, immutable-on-publish OKF Knowledge Bundle. The
+// Intent Registry (§4.6) holds Intents; each Intent publishes versioned
+// bundles as children. Two-tier history: draft checkpoints (append-only,
+// free restore) + published versions (immutable forever, citable).
+// Nothing is ever mutated or deleted — "revert" is forward (restore-as-draft).
+
+enum BundleVersionState {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  DEPRECATED
+  ARCHIVED
+}
+
+/// 1:1 with Intent. The bundle container; holds pointers to its draft head
+/// and latest published version. Version history lives in BundleVersion rows.
+model KnowledgeBundle {
+  id                        String   @id @default(cuid())
+  intentId                  String   @unique
+  intent                    Intent   @relation(fields: [intentId], references: [id])
+  draftHeadVersionId        String?
+  latestPublishedVersionId  String?
+  versions                  BundleVersion[]
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([intentId])
+}
+
+/// An immutable snapshot of the bundle at one point. Drafts (versionNo null)
+/// are append-only checkpoints from refine/build runs. Published versions
+/// (versionNo 1, 2, 3…) are frozen, citable, shareable. Supersession is
+/// automatic: publishing vN+1 superedes vN (sets vN.state → SUPERSEDED +
+/// vN.supersededByVersionId). Restore-as-draft spawns a NEW draft seeded
+/// from any version's content — history is never mutated.
+model BundleVersion {
+  id                    String              @id @default(cuid())
+  bundleId              String
+  bundle                KnowledgeBundle     @relation(fields: [bundleId], references: [id])
+  versionNo             Int?                // null for drafts; 1, 2, 3… for published
+  state                 BundleVersionState  @default(DRAFT)
+  parentVersionId       String?             // the version this was built from (lineage)
+  parentVersion         BundleVersion?      @relation("BundleVersionChain", fields: [parentVersionId], references: [id])
+  children              BundleVersion[]     @relation("BundleVersionChain")
+  label                 String              // auto-label: the user's refine-request text (or build label)
+  understandingSnapshot Json                // the Understanding slots at build time (provenance for Phase 15)
+  costActual            Json?               // { amount: number, currency: string }
+  personaLabel          String?             // 'Quick' | 'Balanced' | 'Deep-dive'
+  outcome               String?             // 'plan' | 'diagram' | 'script' | 'doc'
+  createdById           String?             // who created this draft/version
+  builtAt               DateTime            @default(now())
+  publishedAt           DateTime?
+  supersededByVersionId String?             // set when a newer publish supersedes this
+  supersededByVersion   BundleVersion?      @relation("BundleSupersede", fields: [supersededByVersionId], references: [id])
+  supersedes            BundleVersion[]     @relation("BundleSupersede")
+  concepts              ConceptFile[]
+  createdAt             DateTime            @default(now())
+
+  @@index([bundleId])
+  @@index([state])
+  @@index([parentVersionId])
+}
+
+/// A single concept file within a bundle version. OKF §2: one markdown
+/// document per concept. Path is the filename (e.g. 'plan.md', 'diagram.md').
+/// contentHash is sha256 over the full file content (frontmatter + body);
+/// identical concepts across versions dedup by hash (cheap tree diff).
+model ConceptFile {
+  id           String   @id @default(cuid())
+  versionId    String
+  version      BundleVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  path         String   // 'plan.md', 'diagram.md', 'index.md', 'log.md', …
+  contentHash  String   // sha256 of frontmatter + body
+  frontmatter  Json     // parsed YAML metadata (okf_version, id, type, title, …)
+  body         String   // markdown body (after frontmatter)
+  okfType      String   // the `type` field from frontmatter ('plan' | 'diagram' | …)
+  createdAt    DateTime @default(now())
+
+  @@unique([versionId, path])
+  @@index([versionId])
+  @@index([contentHash])
 }
