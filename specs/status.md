@@ -40,7 +40,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
-| 14 | phase-14-knowledge-bundle-registry | In Progress | Group 0 — contracts & schema |
+| 14 | phase-14-knowledge-bundle-registry | Implementation | All 5 groups complete · 112 tests · tsc 0 · merge gate |
 
 ## Upcoming Phases
 
