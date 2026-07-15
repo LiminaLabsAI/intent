@@ -12,3 +12,5 @@ export type { RecordView, SlotSummary } from './materialize.ts';
 export type { Move, MoveKind } from './decide.ts';
 export type { ReadinessReport } from './strength.ts';
 export type { IntentRecord, Slot, SlotState, Readiness, IntentType, Risk } from './types.ts';
+export { getOrCreateBundle, createDraft, publishDraft, restoreAsDraft, deprecateVersion, archiveVersion, getBundle, getVersion, computeDiff, autogenLogMd } from './bundle.ts';
+export type { BundleView, BundleVersionView, ConceptFileView, ConceptDiff, BundleVersionState } from './bundle.ts';

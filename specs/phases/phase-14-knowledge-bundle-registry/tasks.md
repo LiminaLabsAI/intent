@@ -7,16 +7,16 @@
   - [x] Migration: lazy (on first bundle access, seed DRAFT from `record.files`) — deferred to Group 1; schema + Prisma `db push` complete
   - [x] Unit (16 new tests, 98 total) + `tsc` 0
 
-- [ ] **Group 1: Registry API + state machine + shareable route (parallel w/ G2)**
-  - [ ] `POST /api/bundle/[id]/refine` (full re-build → new DRAFT)
-  - [ ] `POST /api/bundle/[id]/regenerate-concept` (targeted override)
-  - [ ] `POST /api/bundle/[id]/publish` (auto-supersede in a transaction; name-on-publish; OKF-validate)
-  - [ ] `POST /api/bundle/versions/[id]/restore-as-draft` (forward only)
-  - [ ] `POST /api/bundle/versions/[id]/deprecate` · `/archive` (flag-only)
-  - [ ] `GET /api/bundle/[id]` (states + drafted trail + published versions + per-version diff)
-  - [ ] `GET /api/bundle/versions/[id]` (concepts + lineage)
-  - [ ] Shareable app route `/i/[intId]/v[n]` (and `/i/[intId]` → latest) — RBAC-gated read-only
-  - [ ] Autogen `log.md` inside published bundles (OKF-conformant)
+- [/] **Group 1: Registry API + state machine + shareable route (parallel w/ G2)**
+  - [ ] `POST /api/bundle/[id]/refine` (full re-build → new DRAFT) — wire after G2
+  - [ ] `POST /api/bundle/[id]/regenerate-concept` (targeted override) — wire after G2
+  - [x] `POST /api/bundle/[id]/publish` (auto-supersede in a transaction; name-on-publish; OKF-validate)
+  - [x] `POST /api/bundle/versions/[id]/restore-as-draft` (forward only)
+  - [x] `POST /api/bundle/versions/[id]/deprecate` · `/archive` (flag-only)
+  - [x] `GET /api/bundle/[id]` (states + drafted trail + published versions + per-version diff)
+  - [x] `GET /api/bundle/versions/[id]` (concepts + lineage)
+  - [x] Shareable app route `/i/[intId]/v[n]` (and `/i/[intId]` → latest) — RBAC-gated read-only
+  - [x] Autogen `log.md` inside published bundles (OKF-conformant)
 
 - [ ] **Group 2: Refinement engine (parallel w/ G1)**
   - [ ] `runRefine(parent, refineRequest, conceptPath?)` (full + targeted)
