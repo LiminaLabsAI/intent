@@ -1,6 +1,11 @@
 # Execution Order
 # Mixed:  Group 0 → (Groups 1 + 2 in parallel) → Group 3 → Group 4 → Group 5
 
+## Reference Specs
+- `specs/vision/product-design.md` §4.6 (Intent Registry — immutable, versioned, system-of-record), §5.1 (working-memory export = derived projection, OKF/MD), §3.6 (agent primitives — Intent, Outcome, Working memory)
+- `specs/decisions/0002-working-memory-build-flow-and-cost.md` (amended — "OKF, full spec compliance, versioned"; cost capture)
+- `specs/decisions/0003-knowledge-bundle-registry.md` (this phase's governing decision)
+
 ## Group 0 — Contracts, schema, validator (sequential; blocks all)
 
 **External deps:** Prisma + Neon (existing).

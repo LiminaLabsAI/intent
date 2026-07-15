@@ -1,7 +1,8 @@
 ---
 type: Phase
-status: planned
+status: in-progress
 tags: [registry, versioning, okf, refine, publish, bundles]
+deps: []
 ---
 
 # Phase 14 — Knowledge Bundle Registry & Cyclic Refinement
