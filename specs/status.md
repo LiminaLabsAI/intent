@@ -26,6 +26,8 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | 9 | Studio on the Trunk | complete | branch (feat/intent-agent) |
 | 10 | Studio Convergence (one Studio at /refine) | complete | branch (feat/intent-agent) |
 | 11 | Behavior & Cost (right-size · infer-first · batch · cost advisory) | complete | branch (feat/intent-agent) |
+| 12 | Working-Memory Build Flow & Cost Engine | complete | main (2026-07-15) |
+| 13 | Studio Experience Redesign (ask-to-enrich · OKF build · redesigned UI) | complete | main (2026-07-15) |
 
 ## Ad-hoc / Patch Releases
 
@@ -38,7 +40,7 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 13 | feat/intent-agent | Complete on branch (verified) — pending review/merge | Studio Experience Redesign: ask-to-enrich clarify (plain language) · live Understanding fields · always-on status-coloured Build → OKF files named by outcome + graph · top strip (status · mode · est→actual) · personas Quick/Balanced/Deep-dive · real DeepInfra values. Revises Phase 12 (ADR-0002 amendment). Phase 12 done on branch (71/71). |
+| 13 | feat/intent-agent | ✅ Merged to main 2026-07-15 (d8b293e, clean fast-forward; backup at backup/main-2026-07-15) | Studio Experience Redesign: ask-to-enrich clarify (plain language) · live Understanding fields · always-on status-coloured Build → OKF files named by outcome + graph · top strip (status · mode · est→actual) · personas Quick/Balanced/Deep-dive · real DeepInfra values. Revises Phase 12 (ADR-0002 amendment). Phases 12 + 13 (80/80). |
 
 ## Upcoming Phases
 
