@@ -16,6 +16,14 @@ Detail: Live review surfaced misses: status·mode·cost were still in Artifacts 
 
 ---
 
+### [DISCOVERY] 2026-07-15 — Build JSON truncation (BUG-007) + no raw errors on the UI
+Topics: build, llm, tokens, json, error-handling, ux
+Affects-phases: phase-13-studio-redesign
+Affects-specs: none
+Detail: Live build showed a raw "Unexpected end of JSON input". Root cause: `HfLLM.chat` hard-coded `max_tokens: 900` for EVERY call, so a full build (Deep-Dive: CRUD + auth + responsive) truncated its JSON mid-body → `JSON.parse` threw, and the raw message rendered in the studio. Fixes: (1) per-call `maxTokens` via `GenOpts`; the build asks for 8000. (2) `extractJson` now strips code fences/prose, best-effort repairs a truncated object (close open string/brackets), and throws a clean `MODEL_OUTPUT_UNPARSEABLE` marker rather than a raw parse message — exported + unit-tested. (3) `build` retries generation once and guards against recording an empty "built". (4) The API and client only ever surface friendly text (raw → console); the client parses responses via `safeJson` so a bad body can't itself throw. Error notice restyled + dismissable. 80/80, tsc 0; live-verified on DeepSeek (plan.md, OKF header, ~14s, $0.00015). Design note: the 900-token default stays for clarify turns (cheap); only the build lifts it.
+
+---
+
 ### [DISCOVERY] 2026-07-15 — Live UX batch: cost clarity, OKF header, split cards, always-on Build; + two deferrals
 Topics: ui, ux, cost, okf, build, rebuild, layout, backlog
 Affects-phases: phase-13-studio-redesign
