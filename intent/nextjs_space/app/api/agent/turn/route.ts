@@ -44,7 +44,12 @@ export async function POST(req: NextRequest) {
       const id = typeof body?.id === 'string' && body.id ? body.id : undefined;
       if (!id) return NextResponse.json({ error: 'id is required to build' }, { status: 400 });
       const rebuild = body?.rebuild === true;
-      await runBuild(store, id, getLLM(), { force: rebuild });
+      try {
+        await runBuild(store, id, getLLM(), { force: rebuild });
+      } catch (err) {
+        console.error('[agent/turn] build failed:', err);
+        return NextResponse.json({ error: "The build didn't finish. Please try again." }, { status: 502 });
+      }
       const view = await materializeRecord(store, id);
       if (!view) return NextResponse.json({ error: 'record not found' }, { status: 404 });
       const names = (view.record.files ?? []).map((f) => f.name).join(', ');
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ id, moves: result.moves, reply: result.reply, view: result.view });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('[agent/turn] error:', e);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

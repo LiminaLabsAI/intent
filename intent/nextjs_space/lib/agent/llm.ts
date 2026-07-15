@@ -15,21 +15,69 @@ export interface Usage {
   outputTokens: number;
 }
 
+/** Per-call generation options. `maxTokens` sizes the completion budget — the
+ * Build run needs far more than a clarify turn (a full plan can be thousands of
+ * tokens; too small a cap truncates the JSON and breaks parsing). */
+export interface GenOpts {
+  maxTokens?: number;
+}
+
 export interface LLM {
   /** Free-form text completion (used by Narrate). */
   generateText(system: string, user: string): Promise<string>;
   /** JSON completion parsed into T (used by Perceive). Impl enforces JSON mode. */
-  generateStructured<T>(system: string, user: string): Promise<T>;
+  generateStructured<T>(system: string, user: string, opts?: GenOpts): Promise<T>;
   /** JSON completion that also reports measured usage (used by the Build run). */
-  generateStructuredWithUsage<T>(system: string, user: string): Promise<{ data: T; usage: Usage }>;
+  generateStructuredWithUsage<T>(system: string, user: string, opts?: GenOpts): Promise<{ data: T; usage: Usage }>;
 }
 
 export const DEFAULT_MODEL = 'Qwen/Qwen2.5-7B-Instruct';
 const HF_ENDPOINT = 'https://router.huggingface.co/v1/chat/completions';
+const DEFAULT_MAX_TOKENS = 900;
 
-function extractJson<T>(text: string): T {
-  const match = text.match(/\{[\s\S]*\}/);
-  return JSON.parse(match ? match[0] : text) as T;
+/** A model completion truncated at the token cap yields unterminated JSON. Best-
+ * effort repair: close any open string, drop a dangling comma, and close open
+ * brackets/braces in reverse order so a slightly-cut response still parses. */
+function repairTruncatedJson(s: string): string | null {
+  const stack: string[] = [];
+  let inStr = false, esc = false;
+  for (const c of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') stack.pop();
+  }
+  if (!inStr && stack.length === 0) return null; // nothing to repair
+  let out = inStr ? s + '"' : s;
+  out = out.replace(/,\s*$/, '');
+  for (let i = stack.length - 1; i >= 0; i--) out += stack[i];
+  return out;
+}
+
+/** Isolate and parse the JSON object from a model response — tolerant of code
+ * fences, leading prose, and truncation. Throws a clean, non-technical marker
+ * error (never a raw `JSON.parse` message) so callers can surface a friendly UI. */
+export function extractJson<T>(text: string): T {
+  let s = (text ?? '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const start = s.indexOf('{');
+  if (start > 0) s = s.slice(start);
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    const repaired = repairTruncatedJson(s);
+    if (repaired !== null) {
+      try { return JSON.parse(repaired) as T; } catch { /* fall through */ }
+    }
+    throw new Error('MODEL_OUTPUT_UNPARSEABLE');
+  }
 }
 
 export class HfLLM implements LLM {
@@ -45,14 +93,14 @@ export class HfLLM implements LLM {
     if (!this.token) throw new Error('HF_TOKEN not set (checked host env + .env).');
   }
 
-  private async chat(system: string, user: string, jsonMode: boolean): Promise<{ content: string; usage: Usage }> {
+  private async chat(system: string, user: string, jsonMode: boolean, maxTokens?: number): Promise<{ content: string; usage: Usage }> {
     const body: Record<string, unknown> = {
       model: this.model,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      max_tokens: 900,
+      max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS,
       temperature: this.temperature,
     };
     if (jsonMode) body.response_format = { type: 'json_object' };
@@ -77,12 +125,12 @@ export class HfLLM implements LLM {
     return (await this.chat(system, user, false)).content.trim();
   }
 
-  async generateStructured<T>(system: string, user: string): Promise<T> {
-    return extractJson<T>((await this.chat(system, user, true)).content);
+  async generateStructured<T>(system: string, user: string, opts?: GenOpts): Promise<T> {
+    return extractJson<T>((await this.chat(system, user, true, opts?.maxTokens)).content);
   }
 
-  async generateStructuredWithUsage<T>(system: string, user: string): Promise<{ data: T; usage: Usage }> {
-    const { content, usage } = await this.chat(system, user, true);
+  async generateStructuredWithUsage<T>(system: string, user: string, opts?: GenOpts): Promise<{ data: T; usage: Usage }> {
+    const { content, usage } = await this.chat(system, user, true, opts?.maxTokens);
     return { data: extractJson<T>(content), usage };
   }
 }

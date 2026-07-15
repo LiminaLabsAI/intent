@@ -112,8 +112,8 @@ export default function RefinementChat() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: intentId, message, history }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "turn failed");
+      const data = await safeJson(res);
+      if (!res.ok) { console.error("send failed:", data); setError(typeof data?.error === "string" ? data.error : "Couldn't reach the agent. Please try again."); return; }
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
@@ -124,7 +124,8 @@ export default function RefinementChat() {
         shownId.current = data.id; setIntentId(data.id); router.replace(`/refine?id=${data.id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.error("send error:", e);
+      setError("Couldn't reach the agent. Please try again.");
     } finally { setLoading(false); }
   }
 
@@ -141,15 +142,16 @@ export default function RefinementChat() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: intentId, personaSelection: name, history }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "selection failed");
+      const data = await safeJson(res);
+      if (!res.ok) { console.error("selectPersona failed:", data); setError(typeof data?.error === "string" ? data.error : "Couldn't set the mode. Please try again."); return; }
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingPersona(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "select_persona"));
       setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
       setAwaitingOutcome(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "ask_outcome"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.error("selectPersona error:", e);
+      setError("Couldn't set the mode. Please try again.");
     } finally { setLoading(false); }
   }
 
@@ -166,12 +168,13 @@ export default function RefinementChat() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: intentId, build: true, rebuild, history: messages }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "build failed");
+      const data = await safeJson(res);
+      if (!res.ok) { console.error("build failed:", data); setError(typeof data?.error === "string" ? data.error : "The build didn't finish. Please try again."); return; }
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.error("build error:", e);
+      setError("The build didn't finish. Please try again.");
     } finally { setBuilding(false); }
   }
 
@@ -188,13 +191,22 @@ export default function RefinementChat() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: intentId, message, history }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "turn failed");
+      const data = await safeJson(res);
+      if (!res.ok) { console.error("answerOutcome failed:", data); setError(typeof data?.error === "string" ? data.error : "Couldn't send that. Please try again."); return; }
       setView(data.view);
       setMessages((m) => [...m, { role: "agent", content: data.reply }]);
       setAwaitingBuild(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "offer_build"));
       setAwaitingOutcome(Array.isArray(data.moves) && data.moves.some((mv: Move) => mv.kind === "ask_outcome"));
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
+    } catch (e) {
+      console.error("answerOutcome error:", e);
+      setError("Couldn't send that. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  // Parse a response body without ever throwing on the client — a truncated or
+  // non-JSON body must not become a raw "Unexpected end of JSON input" in the UI.
+  async function safeJson(res: Response): Promise<any> {
+    try { return await res.json(); } catch { return {}; }
   }
 
   function downloadFile(name: string, content: string) {
@@ -353,7 +365,13 @@ export default function RefinementChat() {
                 </div>
               </div>
             )}
-            {error && <div className="text-red-600 text-sm">⚠ {error}</div>}
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <span className="shrink-0">⚠</span>
+                <span className="flex-1">{error}</span>
+                <button onClick={() => setError(null)} className="shrink-0 text-red-400 hover:text-red-600" title="Dismiss"><X className="w-4 h-4" /></button>
+              </div>
+            )}
             <div ref={endRef} />
           </div>
           <div className="border-t border-gray-100">

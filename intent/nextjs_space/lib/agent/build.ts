@@ -37,6 +37,20 @@ const OUTCOME_TITLE: Record<string, string> = {
   plan: 'Execution plan', diagram: 'Diagram', script: 'Script', doc: 'Document',
 };
 
+// A full deliverable is far larger than a clarify turn — size the completion so
+// the JSON isn't truncated mid-body (the cause of "Unexpected end of JSON input").
+const BUILD_MAX_TOKENS = 8000;
+
+/** Run the build generation with one retry — model JSON can occasionally come
+ * back malformed/truncated; a single re-ask usually clears it. */
+async function generateBuild(llm: LLM, outcome: string, summary: string) {
+  try {
+    return await llm.generateStructuredWithUsage<BuildOut>(system(outcome), summary, { maxTokens: BUILD_MAX_TOKENS });
+  } catch {
+    return await llm.generateStructuredWithUsage<BuildOut>(system(outcome), summary, { maxTokens: BUILD_MAX_TOKENS });
+  }
+}
+
 /**
  * Run the build. Composes 1+ OKF files from the record + outcome, then emits a
  * `plan_built` event carrying the files + measured actual cost. Idempotent.
@@ -56,7 +70,7 @@ export async function runBuild(
   if (record.built && !opts.force) return record;
 
   const outcome = record.outcome ?? 'plan';
-  const { data: out, usage } = await llm.generateStructuredWithUsage<BuildOut>(system(outcome), recordSummary(record));
+  const { data: out, usage } = await generateBuild(llm, outcome, recordSummary(record));
 
   const files: PlanFile[] = (out.files ?? [])
     .filter((f) => f && f.name && f.body && String(f.body).trim() !== '')
@@ -75,6 +89,10 @@ export async function runBuild(
         }),
       };
     });
+
+  // Don't record a "successful" build with nothing to show — fail so the caller
+  // can surface a friendly retry instead of an empty Artifacts panel.
+  if (files.length === 0) throw new Error('BUILD_PRODUCED_NO_FILES');
 
   // Actual cost = measured usage × the selected persona's model price (ADR-0002).
   const catalog = await loadCatalog();

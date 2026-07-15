@@ -50,6 +50,34 @@ test('runBuild is idempotent — an already-built record returns unchanged', asy
   assert.equal(second.version, first.version, 'no new events on a re-build');
 });
 
+test('runBuild throws (not an empty build) when the model returns no usable files', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'b5', 'quick', 'plan');
+  const llm = new FakeLLM({ structs: [{ files: [] }] });
+  await assert.rejects(() => runBuild(store, 'b5', llm, { at: AT }), /BUILD_PRODUCED_NO_FILES/);
+  const rec = await store.load('b5');
+  assert.equal(rec?.built, false, 'record not marked built on a failed build');
+});
+
+test('runBuild retries once when generation throws, then succeeds', async () => {
+  const store = new InMemoryEventStore();
+  await seed(store, 'b6', 'quick', 'plan');
+  let calls = 0;
+  const flaky = {
+    generateText: async () => 'ok',
+    generateStructured: async () => ({}),
+    generateStructuredWithUsage: async () => {
+      calls++;
+      if (calls === 1) throw new Error('MODEL_OUTPUT_UNPARSEABLE');
+      return { data: { files: [{ name: 'plan.md', format: 'plan', body: '# Plan' }] }, usage: { inputTokens: 100, outputTokens: 50 } };
+    },
+  };
+  const rec = await runBuild(store, 'b6', flaky as any, { at: AT });
+  assert.equal(calls, 2, 'retried exactly once');
+  assert.equal(rec.files.length, 1);
+  assert.equal(rec.built, true);
+});
+
 test('runBuild with force regenerates — new files overwrite on replay (point 5 rebuild)', async () => {
   const store = new InMemoryEventStore();
   await seed(store, 'b4', 'quick', 'plan');
