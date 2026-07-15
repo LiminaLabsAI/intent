@@ -96,7 +96,6 @@ export function GlobalAppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="flex flex-col text-left">
                  <span className="text-sm font-medium text-gray-900 leading-tight">{session?.user?.name || 'User'}</span>
-                 <span className="text-xs text-gray-500">{session?.user?.role}</span>
               </div>
            </div>
            <MoreVertical className="w-4 h-4 text-gray-400" />
