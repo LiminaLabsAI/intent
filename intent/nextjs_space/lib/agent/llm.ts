@@ -60,15 +60,18 @@ function repairTruncatedJson(s: string): string | null {
   return out;
 }
 
-/** Isolate and parse the JSON object from a model response — tolerant of code
- * fences, leading prose, and truncation. Throws a clean, non-technical marker
- * error (never a raw `JSON.parse` message) so callers can surface a friendly UI. */
+/** Isolate and parse the JSON object from a model response — tolerant of ```json
+ * wrappers, leading prose, and truncation. We slice from the FIRST '{' to the
+ * LAST '}', which spans the whole object even when the model wraps it in code
+ * fences OR the body string itself contains ``` fences (e.g. a plan with code
+ * blocks). Matching an inner ``` fence would truncate the object mid-body — that
+ * was the "incomplete plan" bug. Throws a clean, non-technical marker error
+ * (never a raw `JSON.parse` message) so callers can surface a friendly UI. */
 export function extractJson<T>(text: string): T {
-  let s = (text ?? '').trim();
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) s = fence[1].trim();
-  const start = s.indexOf('{');
-  if (start > 0) s = s.slice(start);
+  const raw = (text ?? '').trim();
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  let s = start === -1 ? raw : end > start ? raw.slice(start, end + 1) : raw.slice(start);
   try {
     return JSON.parse(s) as T;
   } catch {
