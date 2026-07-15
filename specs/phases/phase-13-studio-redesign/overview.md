@@ -1,6 +1,7 @@
 ---
 type: Phase
-status: complete-on-branch
+status: complete
+released: v0.3.0
 tags: [studio, ask-to-enrich, okf, plan-files, personas, live-fields, ux]
 ---
 

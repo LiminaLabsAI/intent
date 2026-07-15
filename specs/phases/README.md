@@ -10,6 +10,10 @@ type: Guide
 | 1 | Intent Refinement Engine | Complete | [phase-1-refinement](file:///Users/sarang/hustle/intent/specs/phases/phase-1-refinement/) |
 | 2 | LLM Integration | Complete | [phase-2-llm-integration](file:///Users/sarang/hustle/intent/specs/phases/phase-2-llm-integration/) |
 | 3 | Validation & Quality Gates | Complete | [phase-3-quality-gates](file:///Users/sarang/hustle/intent/specs/phases/phase-3-quality-gates/) |
+| 12 | Working-Memory Build Flow & Cost Engine | Complete | [phase-12-working-memory-build](phase-12-working-memory-build/) |
+| 13 | Studio Experience Redesign (ask-to-enrich · OKF build) | Complete | [phase-13-studio-redesign](phase-13-studio-redesign/) |
+
+> **Note:** rows for Phases 4–11 are not yet listed here (pre-existing index drift on the `feat/intent-agent` line; the agent phases 7–11 completed on branch). Tracked for a later index cleanup.
 
 ## Phase Structure
 

@@ -4,9 +4,9 @@ type: Status
 
 # Project Status
 
-> **Last Updated**: 2026-07-12
-> **Current Phase**: _(none)_
-> **Latest Release**: v0.2.0
+> **Last Updated**: 2026-07-15
+> **Current Phase**: _(none — Phase 13 released)_
+> **Latest Release**: v0.3.0 — Studio Experience Redesign (Phases 12 + 13; ask-to-enrich · OKF build · cost engine)
 > **Health**: On Track
 
 ## Summary
@@ -40,7 +40,6 @@ Flow is a full-featured Next.js-based Intent Lifecycle Management application im
 | Phase | Branch | Status | Progress |
 |-------|--------|--------|----------|
 | 6 | feat/phase-6-studio-experience | Implementation | In Progress |
-| 13 | feat/intent-agent | ✅ Merged to main 2026-07-15 (d8b293e, clean fast-forward; backup at backup/main-2026-07-15) | Studio Experience Redesign: ask-to-enrich clarify (plain language) · live Understanding fields · always-on status-coloured Build → OKF files named by outcome + graph · top strip (status · mode · est→actual) · personas Quick/Balanced/Deep-dive · real DeepInfra values. Revises Phase 12 (ADR-0002 amendment). Phases 12 + 13 (80/80). |
 
 ## Upcoming Phases
 
