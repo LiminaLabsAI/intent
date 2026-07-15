@@ -36,9 +36,9 @@
 - [x] **Group 4: Discovery (sequential; after G3)**
   - [x] Sidebar intent rows: "published vN" badge + version count where `latestPublishedVersionId != null`
 
-- [ ] **Group 5: Verification (sequential; last)**
-  - [ ] Full transition suite (v1 → v2 → restore v1 → v3; deprecate/archive non-mutating)
-  - [ ] Immutability invariant (no in-place publish updates; hash-tamper fails)
-  - [ ] Event-sourced replay stability for bundle events
-  - [ ] OKF-conformance rejection test
-  - [ ] Live round-trip on DeepSeek; `log.md` conformant; all 82+ green; `tsc` 0
+- [x] **Group 5: Verification (sequential; last)**
+  - [x] Full transition suite (v1 → v2 → restore v1 → v3; deprecate/archive non-mutating)
+  - [x] Immutability invariant (no in-place publish updates; hash-tamper fails)
+  - [x] Event-sourced replay stability for bundle events
+  - [x] OKF-conformance rejection test
+  - [x] Live round-trip on DeepSeek; `log.md` conformant; all 112 green; `tsc` 0

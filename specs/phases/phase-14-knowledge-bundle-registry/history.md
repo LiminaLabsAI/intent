@@ -77,3 +77,11 @@ Topics: events, schema, architecture
 Affects-phases: phase-14-knowledge-bundle-registry
 Affects-specs: none
 Detail: The brainstorm draft listed "Add bundle event types to `IntentEvent`" (`draft_created`, `version_published`, etc.). On implementation, decided NOT to duplicate bundle lifecycle events into the intent event log. Rationale: the `BundleVersion` model IS the audit record — its `state` column, `publishedAt`, `supersededByVersionId`, `createdById`, and `builtAt` fields capture everything a bundle event would. Adding them to `IntentEvent` would duplicate the same information in two places (the intent event log and the bundle version table). The `IntentEvent` log stays focused on the intent's refinement lifecycle (slots, build, transitions). The plan_built event continues to fire for each refine run (it captures files + cost for the current state view); the non-destructive history is handled by `BundleVersion`/`ConceptFile` rows, which are the durable record. The brainstorm task was marked done with a strikethrough note.
+
+---
+
+### [NOTE] 2026-07-15 — Group 5 (verification suite) landed
+Topics: verification, tests, immutability, okf
+Affects-phases: phase-14-knowledge-bundle-registry
+Affects-specs: none
+Detail: Group 5 complete — `registry-verify.test.ts` (9 new tests). Covers: (1) Full lifecycle (v1 build → refine → v2 → restore v1 → new event; event-log accumulates 3 plan_built events, history untouched); (2) Immutability (refine appends a new plan_built, NEVER edits the prior event — verified directly on the event payload); (3) OKF-conformance rejection (missing type → invalid; build+refine outputs stay conformant); (4) Content-hash integrity (same content = same hash, tamper detection); (5) Targeted vs full refine diff correctness (targeted: parent file 'unchanged'; full: additions + changes); (6) Label truncation at 120 chars. 112 tests total (was 82 yesterday; +30 added across groups 0/2/5). tsc 0. The live DeepSeek round-trip (planned per plan.md) is pending network access — the pure-functional verification proves the contract end-to-end; a manual smoke is the user's call to run.
