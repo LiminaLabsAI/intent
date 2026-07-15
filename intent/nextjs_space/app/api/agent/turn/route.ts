@@ -6,6 +6,10 @@ import { createIntentHeader, isHeaderBound, syncIntentHeader, saveTranscript } f
 import type { ChatTurn } from '@/lib/agent/types.ts';
 
 export const dynamic = 'force-dynamic';
+// The build run makes a large LLM call (~14s, doubled if it retries). Without a
+// raised budget it hits Vercel's default serverless timeout (~10–15s) and gets
+// killed mid-request — the "build didn't finish" failures seen on production.
+export const maxDuration = 60;
 
 function genId(): string {
   return 'INT-' + Math.random().toString(36).slice(2, 10).toUpperCase();
