@@ -7,9 +7,9 @@
   - [x] Migration: lazy (on first bundle access, seed DRAFT from `record.files`) — deferred to Group 1; schema + Prisma `db push` complete
   - [x] Unit (16 new tests, 98 total) + `tsc` 0
 
-- [/] **Group 1: Registry API + state machine + shareable route (parallel w/ G2)**
-  - [ ] `POST /api/bundle/[id]/refine` (full re-build → new DRAFT) — wire after G2
-  - [ ] `POST /api/bundle/[id]/regenerate-concept` (targeted override) — wire after G2
+- [x] **Group 1: Registry API + state machine + shareable route (parallel w/ G2)**
+  - [x] `POST /api/bundle/[id]/refine` (full re-build → new DRAFT)
+  - [x] `POST /api/bundle/[id]/regenerate-concept` (targeted override)
   - [x] `POST /api/bundle/[id]/publish` (auto-supersede in a transaction; name-on-publish; OKF-validate)
   - [x] `POST /api/bundle/versions/[id]/restore-as-draft` (forward only)
   - [x] `POST /api/bundle/versions/[id]/deprecate` · `/archive` (flag-only)
@@ -26,12 +26,12 @@
   - [x] Actual-cost capture per refine run (ADR-0002 reuse)
   - [x] Unit (Fake): delta composition, hash-diff, label; live: one refine run on the real model
 
-- [ ] **Group 3: Studio UI (sequential; after G1+G2)**
-  - [ ] Drafts & Versions drawer (draft trail + published rows + status chips + latest badge)
-  - [ ] Per-version open: concept file viewer + per-concept diff vs parent (markdown diff)
-  - [ ] Restore-as-draft, Publish (with naming), Deprecate, Archive, Copy-link actions
-  - [ ] Per-file "↻ regenerate this concept" affordance in the Artifacts card
-  - [ ] Download bundle (.zip) + per-file (existing)
+- [x] **Group 3: Studio UI (sequential; after G1+G2)**
+  - [x] Drafts & Versions drawer (draft trail + published rows + status chips + latest badge)
+  - [x] Per-version open: concept file viewer + per-concept diff vs parent (markdown diff)
+  - [x] Restore-as-draft, Publish (with naming), Deprecate, Archive, Copy-link actions
+  - [x] Per-file "↻ regenerate this concept" affordance in the Artifacts card
+  - [x] Download bundle (.zip) — per-file download (existing, retained) + per-file (existing)
 
 - [ ] **Group 4: Discovery (sequential; after G3)**
   - [ ] Sidebar intent rows: "published vN" badge + version count where `latestPublishedVersionId != null`

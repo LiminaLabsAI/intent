@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Download, Sparkles, Cpu, Pencil, Check, X } from "lucide-react";
+import { Send, Download, Sparkles, Cpu, Pencil, Check, X, GitBranch, RotateCw, Copy, Tag, Archive } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -21,6 +21,23 @@ interface View {
   cost?: CostEstimate;
   personas?: PersonaOption[];
   selectedPersona?: string | null;
+}
+
+// Phase 14 — bundle types
+interface ConceptDiff { path: string; status: "added" | "changed" | "unchanged" | "removed" }
+interface BundleVersionView {
+  id: string; versionNo: number | null; state: string; parentVersionId: string | null;
+  label: string; outcome: string | null; personaLabel: string | null;
+  costActual: { amount: number; currency: string } | null;
+  understandingSnapshot: Record<string, string>;
+  builtAt: string; publishedAt: string | null; supersededByVersionId: string | null;
+  concepts: { path: string; contentHash: string; frontmatter: Record<string, string>; body: string; okfType: string }[];
+}
+interface BundleView {
+  id: string; intentId: string;
+  draftHeadVersionId: string | null;
+  latestPublishedVersionId: string | null;
+  versions: BundleVersionView[]; drafts: BundleVersionView[]; published: BundleVersionView[];
 }
 
 const PERSONA_BLURB: Record<string, string> = {
@@ -59,6 +76,13 @@ export default function RefinementChat() {
   const [awaitingOutcome, setAwaitingOutcome] = useState(false);
   const [building, setBuilding] = useState(false);
   const [fileView, setFileView] = useState<{ name: string; content: string } | null>(null);
+  const [bundle, setBundle] = useState<BundleView | null>(null);
+  const [showVersions, setShowVersions] = useState(false);
+  const [publishName, setPublishName] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [versionDetail, setVersionDetail] = useState<string | null>(null);
+  const [versionDiff, setVersionDiff] = useState<ConceptDiff[] | null>(null);
   const searchParams = useSearchParams();
   const idFromUrl = searchParams?.get("id") ?? null;
   const [intentId, setIntentId] = useState<string | null>(idFromUrl);
@@ -232,6 +256,99 @@ export default function RefinementChat() {
       if (key) meta.push([key, val]);
     }
     return { meta, body: content.slice(m[0].length) };
+  }
+
+  // Phase 14 — load the bundle (drafts + published versions) after a build/refine
+  async function loadBundle() {
+    if (!intentId || !view?.record?.built) return;
+    try {
+      const res = await fetch(`/api/bundle/${intentId}`);
+      if (res.ok) setBundle(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => { loadBundle(); }, [intentId, view?.record?.built]);
+
+  async function publish() {
+    if (!intentId || publishing) return;
+    setPublishing(true);
+    try {
+      const res = await fetch(`/api/bundle/${intentId}/publish`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: publishName || undefined }),
+      });
+      if (res.ok) { setPublishName(""); await loadBundle(); }
+    } catch { /* ignore */ } finally { setPublishing(false); }
+  }
+
+  async function regenerateConcept(path: string) {
+    if (!intentId || regenerating) return;
+    setRegenerating(path);
+    try {
+      const res = await fetch(`/api/bundle/${intentId}/regenerate-concept`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conceptPath: path }),
+      });
+      const data = await safeJson(res);
+      if (res.ok) { setView(data.view); await loadBundle(); }
+    } catch { /* ignore */ } finally { setRegenerating(null); }
+  }
+
+  async function restoreVersion(versionId: string) {
+    try {
+      const res = await fetch(`/api/bundle/versions/${versionId}/restore-as-draft`, { method: "POST" });
+      if (res.ok) await loadBundle();
+    } catch { /* ignore */ }
+  }
+
+  async function deprecateVersion(versionId: string) {
+    try {
+      const res = await fetch(`/api/bundle/versions/${versionId}/deprecate`, { method: "POST" });
+      if (res.ok) await loadBundle();
+    } catch { /* ignore */ }
+  }
+
+  async function archiveVersion(versionId: string) {
+    try {
+      const res = await fetch(`/api/bundle/versions/${versionId}/archive`, { method: "POST" });
+      if (res.ok) await loadBundle();
+    } catch { /* ignore */ }
+  }
+
+  function copyVersionLink(versionNo: number | null) {
+    if (!intentId || versionNo == null) return;
+    navigator.clipboard.writeText(`${window.location.origin}/i/${intentId}/v${versionNo}`).catch(() => {});
+  }
+
+  async function loadVersionDetail(versionId: string) {
+    try {
+      const res = await fetch(`/api/bundle/versions/${versionId}`);
+      if (res.ok) {
+        const v = await res.json();
+        setVersionDetail(versionId);
+        if (v.parentVersionId) {
+          fetch(`/api/bundle/${intentId}`).then(r => r.json()).then((b: BundleView) => {
+            const parent = b.versions.find((x) => x.id === v.parentVersionId);
+            if (parent) {
+              const parentMap = new Map(parent.concepts.map((c: any) => [c.path, c.contentHash]));
+              const childMap = new Map((v.concepts as any[]).map((c: any) => [c.path, c.contentHash]));
+              const allPaths = new Set([...parentMap.keys(), ...childMap.keys()]);
+              const diff: ConceptDiff[] = [];
+              for (const path of allPaths) {
+                const ph = parentMap.get(path), ch = childMap.get(path);
+                if (ch && !ph) diff.push({ path, status: "added" });
+                else if (!ch && ph) diff.push({ path, status: "removed" });
+                else if (ch && ph && ch !== ph) diff.push({ path, status: "changed" });
+                else diff.push({ path, status: "unchanged" });
+              }
+              setVersionDiff(diff.sort((a, b) => a.path.localeCompare(b.path)));
+            }
+          });
+        } else {
+          setVersionDiff(null);
+        }
+      }
+    } catch { /* ignore */ }
   }
 
   async function saveSlot(key: string, value: string) {
@@ -410,9 +527,16 @@ export default function RefinementChat() {
         <div className="flex flex-col h-full gap-3 overflow-hidden hidden lg:flex">
           {/* 1 · Artifacts — the deliverable files only */}
           <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden shrink-0 flex flex-col max-h-[42%]">
-            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-              <h2 className="font-semibold text-gray-800">Artifacts</h2>
-              <p className="text-xs text-gray-400">the deliverable — open or download</p>
+            <div className="px-4 py-3 border-b border-gray-100 shrink-0 flex items-center justify-between gap-2">
+              <div>
+                <h2 className="font-semibold text-gray-800">Artifacts</h2>
+                <p className="text-xs text-gray-400">the deliverable — open or download</p>
+              </div>
+              {bundle && (bundle.drafts.length > 0 || bundle.published.length > 0) && (
+                <button onClick={() => setShowVersions(true)} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 hover:border-indigo-300 text-gray-600 hover:text-indigo-700 inline-flex items-center gap-1 shrink-0">
+                  <GitBranch className="w-3.5 h-3.5" /> {bundle.published.length > 0 ? `v${bundle.published.find((v) => v.id === bundle.latestPublishedVersionId)?.versionNo ?? 0}` : "Drafts"} ({bundle.versions.length})
+                </button>
+              )}
             </div>
             <div className="p-3 space-y-2 overflow-y-auto">
               {!view ? (
@@ -421,8 +545,12 @@ export default function RefinementChat() {
                 <>
                   <div className="text-[11px] text-gray-400 px-1 flex items-center gap-1"><Download className="w-3 h-3" /> Files · OKF</div>
                   {view.record.files.map((f) => (
-                    <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2">
+                    <div key={f.name} className="border border-indigo-100 rounded-lg p-2 flex items-center gap-2 group">
                       <button onClick={() => setFileView({ name: f.name, content: f.content })} className="text-sm text-indigo-700 font-mono flex-1 text-left hover:underline">{f.name}</button>
+                      <button onClick={() => regenerateConcept(f.name)} title="Regenerate this file" disabled={!!regenerating}
+                        className="text-gray-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition disabled:opacity-30">
+                        {regenerating === f.name ? <span className="text-[10px] animate-pulse">…</span> : <RotateCw className="w-3.5 h-3.5" />}
+                      </button>
                       <button onClick={() => downloadFile(f.name, f.content)} title="Download" className="text-gray-400 hover:text-gray-700"><Download className="w-4 h-4" /></button>
                     </div>
                   ))}
@@ -559,6 +687,110 @@ export default function RefinementChat() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-gray-400 text-sm mt-6"><span className="inline-block w-3 h-3 rounded-full bg-indigo-400 animate-pulse" /> Generating {drawer === "PRD" ? "the PRD" : "the implementation plan"}…</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    {/* Phase 14 — Versions & Drafts drawer */}
+      {showVersions && bundle && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={() => { setShowVersions(false); setVersionDetail(null); setVersionDiff(null); }} />
+          <div className="relative z-50 w-full max-w-xl h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-indigo-600" />
+                <h2 className="text-sm font-semibold text-gray-800">Drafts & Versions</h2>
+              </div>
+              <button onClick={() => { setShowVersions(false); setVersionDetail(null); setVersionDiff(null); }} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Publish section — visible when a draftHead exists */}
+              {bundle.draftHeadVersionId && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                  <div className="text-sm font-medium text-emerald-900 mb-2">Publish this draft as a version</div>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+                      placeholder="Version name (optional — defaults to the latest refine label)"
+                      value={publishName} onChange={(e) => setPublishName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") publish(); }}
+                    />
+                    <button onClick={publish} disabled={publishing}
+                      className="px-4 py-1.5 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shrink-0">
+                      {publishing ? "Publishing…" : "Publish"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Published versions */}
+              {bundle.published.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Published</h3>
+                  <div className="space-y-2">
+                    {bundle.published.slice().reverse().map((v) => {
+                      const isLatest = v.id === bundle.latestPublishedVersionId;
+                      const isOpen = versionDetail === v.id;
+                      return (
+                        <div key={v.id} className={`rounded-lg border p-3 ${isLatest ? "border-indigo-200 bg-indigo-50/30" : "border-gray-200"}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-medium text-gray-800">v{v.versionNo}</span>
+                            {isLatest && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">latest</span>}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${v.state === "SUPERSEDED" ? "bg-gray-100 text-gray-500" : v.state === "DEPRECATED" ? "bg-amber-100 text-amber-700" : v.state === "ARCHIVED" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"}`}>{v.state.toLowerCase()}</span>
+                            <span className="text-xs text-gray-500 truncate flex-1">{v.label}</span>
+                            <span className="text-[10px] text-gray-400 shrink-0">{new Date(v.publishedAt ?? v.builtAt).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <button onClick={() => isOpen ? (setVersionDetail(null), setVersionDiff(null)) : loadVersionDetail(v.id)} className="text-xs text-indigo-600 hover:underline">
+                              {isOpen ? "Hide" : "View"}
+                            </button>
+                            <button onClick={() => copyVersionLink(v.versionNo)} className="text-xs text-gray-500 hover:text-indigo-600 inline-flex items-center gap-1"><Copy className="w-3 h-3" /> Link</button>
+                            <button onClick={() => restoreVersion(v.id)} className="text-xs text-gray-500 hover:text-indigo-600">Restore</button>
+                            {isLatest && <button onClick={() => deprecateVersion(v.id)} className="text-xs text-gray-500 hover:text-amber-600 inline-flex items-center gap-1"><Tag className="w-3 h-3" /> Deprecate</button>}
+                            <button onClick={() => archiveVersion(v.id)} className="text-xs text-gray-500 hover:text-red-600 inline-flex items-center gap-1"><Archive className="w-3 h-3" /> Archive</button>
+                          </div>
+                          {isOpen && versionDiff && (
+                            <div className="mt-2 border-t border-gray-100 pt-2">
+                              <div className="text-[10px] uppercase text-gray-400 mb-1">What changed vs parent</div>
+                              <div className="space-y-0.5">
+                                {versionDiff.map((d) => (
+                                  <div key={d.path} className="flex items-center gap-2 text-xs">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${d.status === "changed" ? "bg-amber-400" : d.status === "added" ? "bg-emerald-400" : d.status === "removed" ? "bg-red-400" : "bg-gray-300"}`} />
+                                    <span className="font-mono text-gray-600">{d.path}</span>
+                                    <span className="text-gray-400">{d.status}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Draft trail */}
+              {bundle.drafts.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Drafts</h3>
+                  <div className="space-y-1.5">
+                    {bundle.drafts.slice(0, 10).map((d) => (
+                      <div key={d.id} className={`rounded-lg border px-3 py-2 flex items-center gap-2 ${d.id === bundle.draftHeadVersionId ? "border-indigo-200 bg-indigo-50/20" : "border-gray-100"}`}>
+                        {d.id === bundle.draftHeadVersionId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-medium">current</span>}
+                        <span className="text-xs text-gray-700 truncate flex-1">{d.label}</span>
+                        <span className="text-[10px] text-gray-400 shrink-0">{new Date(d.builtAt).toLocaleString()}</span>
+                        <button onClick={() => restoreVersion(d.id)} className="text-xs text-gray-500 hover:text-indigo-600 shrink-0">Restore</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {bundle.versions.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-8">No versions yet — build or refine, then publish.</p>
               )}
             </div>
           </div>
