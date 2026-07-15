@@ -6,14 +6,21 @@ type: Guide
 
 | Phase | Name | Status | Directory |
 |-------|------|--------|-----------|
-| 0 | Bootstrap | Complete | [phase-0-bootstrap](file:///Users/sarang/hustle/intent/specs/phases/phase-0-bootstrap/) |
-| 1 | Intent Refinement Engine | Complete | [phase-1-refinement](file:///Users/sarang/hustle/intent/specs/phases/phase-1-refinement/) |
-| 2 | LLM Integration | Complete | [phase-2-llm-integration](file:///Users/sarang/hustle/intent/specs/phases/phase-2-llm-integration/) |
-| 3 | Validation & Quality Gates | Complete | [phase-3-quality-gates](file:///Users/sarang/hustle/intent/specs/phases/phase-3-quality-gates/) |
-| 12 | Working-Memory Build Flow & Cost Engine | Complete | [phase-12-working-memory-build](phase-12-working-memory-build/) |
-| 13 | Studio Experience Redesign (ask-to-enrich · OKF build) | Complete | [phase-13-studio-redesign](phase-13-studio-redesign/) |
+| 0 | Bootstrap | Complete | [phase-0-bootstrap](phase-0-bootstrap/) |
+| 1 | Intent Refinement Engine | Complete | [phase-1-refinement](phase-1-refinement/) |
+| 2 | LLM Integration | Complete | [phase-2-llm-integration](phase-2-llm-integration/) |
+| 3 | Validation & Quality Gates | Complete | [phase-3-quality-gates](phase-3-quality-gates/) |
+| 5 | Agentic Dispatch | Paused | [phase-5-agentic-dispatch](phase-5-agentic-dispatch/) |
+| 6 | Studio Experience | In Progress | [phase-6-studio-experience](phase-6-studio-experience/) |
+| 7 | Deterministic Trunk (rails) | Complete | [phase-7-record-trunk](phase-7-record-trunk/) |
+| 8 | The Agent Loop (driver) | Complete | [phase-8-agent-loop](phase-8-agent-loop/) |
+| 9 | Studio on the Trunk | Complete | [phase-9-studio-on-trunk](phase-9-studio-on-trunk/) |
+| 10 | Studio Convergence | Complete | [phase-10-studio-convergence](phase-10-studio-convergence/) |
+| 11 | Behavior & Cost | Complete | [phase-11-behavior-cost](phase-11-behavior-cost/) |
+| 12 | Working-Memory Build Flow & Cost Engine | Complete (v0.3.0) | [phase-12-working-memory-build](phase-12-working-memory-build/) |
+| 13 | Studio Experience Redesign (ask-to-enrich · OKF build) | Complete (v0.3.0) | [phase-13-studio-redesign](phase-13-studio-redesign/) |
 
-> **Note:** rows for Phases 4–11 are not yet listed here (pre-existing index drift on the `feat/intent-agent` line; the agent phases 7–11 completed on branch). Tracked for a later index cleanup.
+> **Note:** Phase 4 (SSE Optimizations) was planned but never scaffolded — it has no directory (see `roadmap.md` / `status.md`). Phases 5 (paused) and 6 (in progress) are separate lanes. Directory links are now relative (were previously absolute paths to a contributor's local machine).
 
 ## Phase Structure
 
