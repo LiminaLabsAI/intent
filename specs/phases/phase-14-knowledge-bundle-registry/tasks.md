@@ -33,8 +33,8 @@
   - [x] Per-file "↻ regenerate this concept" affordance in the Artifacts card
   - [x] Download bundle (.zip) — per-file download (existing, retained) + per-file (existing)
 
-- [ ] **Group 4: Discovery (sequential; after G3)**
-  - [ ] Sidebar intent rows: "published vN" badge + version count where `latestPublishedVersionId != null`
+- [x] **Group 4: Discovery (sequential; after G3)**
+  - [x] Sidebar intent rows: "published vN" badge + version count where `latestPublishedVersionId != null`
 
 - [ ] **Group 5: Verification (sequential; last)**
   - [ ] Full transition suite (v1 → v2 → restore v1 → v3; deprecate/archive non-mutating)
